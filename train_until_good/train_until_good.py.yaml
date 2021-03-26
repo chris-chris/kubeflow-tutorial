@@ -1,0 +1,1062 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: train-until-good-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0, pipelines.kubeflow.org/pipeline_compilation_time: '2021-03-25T08:14:34.624430',
+    pipelines.kubeflow.org/pipeline_spec: '{"name": "Train until good pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.4.0}
+spec:
+  entrypoint: train-until-good-pipeline
+  templates:
+  - name: calculate-regression-metrics-from-csv
+    container:
+      args: [--true-values, /tmp/inputs/true_values/data, --predicted-values, /tmp/inputs/predicted_values/data,
+        '----output-paths', /tmp/outputs/max_absolute_error/data, /tmp/outputs/mean_absolute_error/data,
+        /tmp/outputs/mean_squared_error/data, /tmp/outputs/root_mean_squared_error/data]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'numpy==1.19.0' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+        --quiet --no-warn-script-location 'numpy==1.19.0' --user) && "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        def calculate_regression_metrics_from_csv(
+            true_values_path,
+            predicted_values_path,
+        ):
+            '''Calculates regression metrics.
+
+            Annotations:
+                author: Alexey Volkov <alexey.volkov@ark-kun.com>
+            '''
+            import math
+            import numpy
+
+            true_values = numpy.loadtxt(true_values_path, dtype=numpy.float64)
+            predicted_values = numpy.loadtxt(predicted_values_path, dtype=numpy.float64)
+
+            if len(predicted_values.shape) != 1:
+                raise NotImplemented('Only single prediction values are supported.')
+            if len(true_values.shape) != 1:
+                raise NotImplemented('Only single true values are supported.')
+
+            if predicted_values.shape != true_values.shape:
+                raise ValueError('Input shapes are different: {} != {}'.format(predicted_values.shape, true_values.shape))
+
+            num_true_values = true_values
+            errors = (true_values - predicted_values)
+            abs_errors = numpy.abs(errors)
+            squared_errors = errors ** 2
+            max_absolute_error = numpy.max(abs_errors)
+            mean_absolute_error = numpy.average(abs_errors)
+            mean_squared_error = numpy.average(squared_errors)
+            root_mean_squared_error = math.sqrt(mean_squared_error)
+
+            return (
+                max_absolute_error,
+                mean_absolute_error,
+                mean_squared_error,
+                root_mean_squared_error,
+            )
+
+        def _serialize_float(float_value: float) -> str:
+            if isinstance(float_value, str):
+                return float_value
+            if not isinstance(float_value, (float, int)):
+                raise TypeError('Value "{}" has type "{}" instead of float.'.format(str(float_value), str(type(float_value))))
+            return str(float_value)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Calculate regression metrics from csv', description='Calculates regression metrics.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>')
+        _parser.add_argument("--true-values", dest="true_values_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--predicted-values", dest="predicted_values_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=4)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = calculate_regression_metrics_from_csv(**_parsed_args)
+
+        _output_serializers = [
+            _serialize_float,
+            _serialize_float,
+            _serialize_float,
+            _serialize_float,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: xgboost-predict-predictions, path: /tmp/inputs/predicted_values/data}
+      - {name: remove-header-table, path: /tmp/inputs/true_values/data}
+    outputs:
+      parameters:
+      - name: calculate-regression-metrics-from-csv-mean_squared_error
+        valueFrom: {path: /tmp/outputs/mean_squared_error/data}
+      artifacts:
+      - {name: calculate-regression-metrics-from-csv-max_absolute_error, path: /tmp/outputs/max_absolute_error/data}
+      - {name: calculate-regression-metrics-from-csv-mean_absolute_error, path: /tmp/outputs/mean_absolute_error/data}
+      - {name: calculate-regression-metrics-from-csv-mean_squared_error, path: /tmp/outputs/mean_squared_error/data}
+      - {name: calculate-regression-metrics-from-csv-root_mean_squared_error, path: /tmp/outputs/root_mean_squared_error/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Calculates
+          regression metrics.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>",
+          "implementation": {"container": {"args": ["--true-values", {"inputPath":
+          "true_values"}, "--predicted-values", {"inputPath": "predicted_values"},
+          "----output-paths", {"outputPath": "max_absolute_error"}, {"outputPath":
+          "mean_absolute_error"}, {"outputPath": "mean_squared_error"}, {"outputPath":
+          "root_mean_squared_error"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''numpy==1.19.0''
+          || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+          ''numpy==1.19.0'' --user) && \"$0\" \"$@\"", "python3", "-u", "-c", "def
+          calculate_regression_metrics_from_csv(\n    true_values_path,\n    predicted_values_path,\n):\n    ''''''Calculates
+          regression metrics.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>\n    ''''''\n    import
+          math\n    import numpy\n\n    true_values = numpy.loadtxt(true_values_path,
+          dtype=numpy.float64)\n    predicted_values = numpy.loadtxt(predicted_values_path,
+          dtype=numpy.float64)\n\n    if len(predicted_values.shape) != 1:\n        raise
+          NotImplemented(''Only single prediction values are supported.'')\n    if
+          len(true_values.shape) != 1:\n        raise NotImplemented(''Only single
+          true values are supported.'')\n\n    if predicted_values.shape != true_values.shape:\n        raise
+          ValueError(''Input shapes are different: {} != {}''.format(predicted_values.shape,
+          true_values.shape))\n\n    num_true_values = true_values\n    errors = (true_values
+          - predicted_values)\n    abs_errors = numpy.abs(errors)\n    squared_errors
+          = errors ** 2\n    max_absolute_error = numpy.max(abs_errors)\n    mean_absolute_error
+          = numpy.average(abs_errors)\n    mean_squared_error = numpy.average(squared_errors)\n    root_mean_squared_error
+          = math.sqrt(mean_squared_error)\n\n    return (\n        max_absolute_error,\n        mean_absolute_error,\n        mean_squared_error,\n        root_mean_squared_error,\n    )\n\ndef
+          _serialize_float(float_value: float) -> str:\n    if isinstance(float_value,
+          str):\n        return float_value\n    if not isinstance(float_value, (float,
+          int)):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
+          float.''.format(str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Calculate regression
+          metrics from csv'', description=''Calculates regression metrics.\\n\\n    Annotations:\\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>'')\n_parser.add_argument(\"--true-values\",
+          dest=\"true_values_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--predicted-values\",
+          dest=\"predicted_values_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=4)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = calculate_regression_metrics_from_csv(**_parsed_args)\n\n_output_serializers
+          = [\n    _serialize_float,\n    _serialize_float,\n    _serialize_float,\n    _serialize_float,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "true_values"}, {"name": "predicted_values"}],
+          "name": "Calculate regression metrics from csv", "outputs": [{"name": "max_absolute_error",
+          "type": "Float"}, {"name": "mean_absolute_error", "type": "Float"}, {"name":
+          "mean_squared_error", "type": "Float"}, {"name": "root_mean_squared_error",
+          "type": "Float"}]}', pipelines.kubeflow.org/component_ref: '{"digest": "f326bddad865f292b6e67b0edc485649b13f5fa74b1546584974274c2bced3e1",
+          "url": "https://raw.githubusercontent.com/kubeflow/pipelines/616542ac0f789914f4eb53438da713dd3004fba4/components/ml_metrics/Calculate_regression_metrics/from_CSV/component.yaml"}'}
+  - name: chicago-taxi-trips-dataset
+    container:
+      args: []
+      command:
+      - sh
+      - -c
+      - |
+        set -e -x -o pipefail
+        output_path="$0"
+        select="$1"
+        where="$2"
+        limit="$3"
+        format="$4"
+        mkdir -p "$(dirname "$output_path")"
+        curl --get 'https://data.cityofchicago.org/resource/wrvz-psew.'"${format}" \
+            --data-urlencode '$limit='"${limit}" \
+            --data-urlencode '$where='"${where}" \
+            --data-urlencode '$select='"${select}" \
+            | tr -d '"' > "$output_path"  # Removing unneeded quotes around all numbers
+      - /tmp/outputs/Table/data
+      - tips,trip_seconds,trip_miles,pickup_community_area,dropoff_community_area,fare,tolls,extras,trip_total
+      - trip_start_timestamp >= "2019-01-01" AND trip_start_timestamp < "2019-02-01"
+      - '10000'
+      - csv
+      image: curlimages/curl
+    outputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table, path: /tmp/outputs/Table/data}
+    metadata:
+      annotations: {author: Alexey Volkov <alexey.volkov@ark-kun.com>, pipelines.kubeflow.org/component_spec: '{"description":
+          "City of Chicago Taxi Trips dataset: https://data.cityofchicago.org/Transportation/Taxi-Trips/wrvz-psew\n\nThe
+          input parameters configure the SQL query to the database.\nThe dataset is
+          pretty big, so limit the number of results using the `Limit` or `Where`
+          parameters.\nRead [Socrata dev](https://dev.socrata.com/docs/queries/) for
+          the advanced query syntax\n", "implementation": {"container": {"command":
+          ["sh", "-c", "set -e -x -o pipefail\noutput_path=\"$0\"\nselect=\"$1\"\nwhere=\"$2\"\nlimit=\"$3\"\nformat=\"$4\"\nmkdir
+          -p \"$(dirname \"$output_path\")\"\ncurl --get ''https://data.cityofchicago.org/resource/wrvz-psew.''\"${format}\"
+          \\\n    --data-urlencode ''$limit=''\"${limit}\" \\\n    --data-urlencode
+          ''$where=''\"${where}\" \\\n    --data-urlencode ''$select=''\"${select}\"
+          \\\n    | tr -d ''\"'' > \"$output_path\"  # Removing unneeded quotes around
+          all numbers\n", {"outputPath": "Table"}, {"inputValue": "Select"}, {"inputValue":
+          "Where"}, {"inputValue": "Limit"}, {"inputValue": "Format"}], "image": "curlimages/curl"}},
+          "inputs": [{"default": "trip_start_timestamp>=\"1900-01-01\" AND trip_start_timestamp<\"2100-01-01\"",
+          "name": "Where", "type": "String"}, {"default": "1000", "description": "Number
+          of rows to return. The rows are randomly sampled.", "name": "Limit", "type":
+          "Integer"}, {"default": "trip_id,taxi_id,trip_start_timestamp,trip_end_timestamp,trip_seconds,trip_miles,pickup_census_tract,dropoff_census_tract,pickup_community_area,dropoff_community_area,fare,tips,tolls,extras,trip_total,payment_type,company,pickup_centroid_latitude,pickup_centroid_longitude,pickup_centroid_location,dropoff_centroid_latitude,dropoff_centroid_longitude,dropoff_centroid_location",
+          "name": "Select", "type": "String"}, {"default": "csv", "description": "Output
+          data format. Suports csv,tsv,cml,rdf,json", "name": "Format", "type": "String"}],
+          "metadata": {"annotations": {"author": "Alexey Volkov <alexey.volkov@ark-kun.com>"}},
+          "name": "Chicago Taxi Trips dataset", "outputs": [{"description": "Result
+          type depends on format. CSV and TSV have header.", "name": "Table"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "ecf2f2840c57bd9cb2778c8f529da9b938b81f59294b3f7271cb23b363640343",
+          "url": "https://raw.githubusercontent.com/kubeflow/pipelines/e3337b8bdcd63636934954e592d4b32c95b49129/components/datasets/Chicago%20Taxi/component.yaml"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"Format": "csv", "Limit": "10000",
+          "Select": "tips,trip_seconds,trip_miles,pickup_community_area,dropoff_community_area,fare,tolls,extras,trip_total",
+          "Where": "trip_start_timestamp >= \"2019-01-01\" AND trip_start_timestamp
+          < \"2019-02-01\""}'}
+  - name: condition-2
+    inputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table}
+      - {name: remove-header-table}
+      - {name: xgboost-train-2-model}
+    dag:
+      tasks:
+      - name: graph-train-until-low-error-1
+        template: graph-train-until-low-error-1
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{inputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+          - {name: remove-header-table, from: '{{inputs.artifacts.remove-header-table}}'}
+          - {name: xgboost-train-model, from: '{{inputs.artifacts.xgboost-train-2-model}}'}
+  - name: graph-train-until-low-error-1
+    inputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table}
+      - {name: remove-header-table}
+      - {name: xgboost-train-model}
+    dag:
+      tasks:
+      - name: calculate-regression-metrics-from-csv
+        template: calculate-regression-metrics-from-csv
+        dependencies: [xgboost-predict]
+        arguments:
+          artifacts:
+          - {name: remove-header-table, from: '{{inputs.artifacts.remove-header-table}}'}
+          - {name: xgboost-predict-predictions, from: '{{tasks.xgboost-predict.outputs.artifacts.xgboost-predict-predictions}}'}
+      - name: condition-2
+        template: condition-2
+        when: '{{tasks.calculate-regression-metrics-from-csv.outputs.parameters.calculate-regression-metrics-from-csv-mean_squared_error}}
+          > 0.01'
+        dependencies: [calculate-regression-metrics-from-csv, xgboost-train-2]
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{inputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+          - {name: remove-header-table, from: '{{inputs.artifacts.remove-header-table}}'}
+          - {name: xgboost-train-2-model, from: '{{tasks.xgboost-train-2.outputs.artifacts.xgboost-train-2-model}}'}
+      - name: xgboost-predict
+        template: xgboost-predict
+        dependencies: [xgboost-train-2]
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{inputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+          - {name: xgboost-train-2-model, from: '{{tasks.xgboost-train-2.outputs.artifacts.xgboost-train-2-model}}'}
+      - name: xgboost-train-2
+        template: xgboost-train-2
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{inputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+          - {name: xgboost-train-model, from: '{{inputs.artifacts.xgboost-train-model}}'}
+  - name: pandas-transform-dataframe-in-csv-format
+    container:
+      args: [--table, /tmp/inputs/table/data, --transform-code, 'df = df[["tips"]]',
+        --transformed-table, /tmp/outputs/transformed_table/data]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'pandas==1.0.4' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+        --quiet --no-warn-script-location 'pandas==1.0.4' --user) && "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def Pandas_Transform_DataFrame_in_CSV_format(
+            table_path,
+            transformed_table_path,
+            transform_code,
+        ):
+            '''Transform DataFrame loaded from a CSV file.
+
+            Inputs:
+                table: Table to transform.
+                transform_code: Transformation code. Code is written in Python and can consist of multiple lines.
+                    The DataFrame variable is called "df".
+                    Examples:
+                    - `df['prod'] = df['X'] * df['Y']`
+                    - `df = df[['X', 'prod']]`
+                    - `df.insert(0, "is_positive", df["X"] > 0)`
+
+            Outputs:
+                transformed_table: Transformed table.
+
+            Annotations:
+                author: Alexey Volkov <alexey.volkov@ark-kun.com>
+            '''
+            import pandas
+
+            df = pandas.read_csv(
+                table_path,
+            )
+            # The namespace is needed so that the code can replace `df`. For example df = df[['X']]
+            namespace = locals()
+            exec(transform_code, namespace)
+            namespace['df'].to_csv(
+                transformed_table_path,
+                index=False,
+            )
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Pandas Transform DataFrame in CSV format', description='Transform DataFrame loaded from a CSV file.\n\n    Inputs:\n        table: Table to transform.\n        transform_code: Transformation code. Code is written in Python and can consist of multiple lines.\n            The DataFrame variable is called "df".\n            Examples:\n            - `df[\'prod\'] = df[\'X\'] * df[\'Y\']`\n            - `df = df[[\'X\', \'prod\']]`\n            - `df.insert(0, "is_positive", df["X"] > 0)`\n\n    Outputs:\n        transformed_table: Transformed table.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>')
+        _parser.add_argument("--table", dest="table_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--transform-code", dest="transform_code", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--transformed-table", dest="transformed_table_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = Pandas_Transform_DataFrame_in_CSV_format(**_parsed_args)
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table, path: /tmp/inputs/table/data}
+    outputs:
+      artifacts:
+      - {name: pandas-transform-dataframe-in-csv-format-transformed_table, path: /tmp/outputs/transformed_table/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Transform
+          DataFrame loaded from a CSV file.\n\n    Inputs:\n        table: Table to
+          transform.\n        transform_code: Transformation code. Code is written
+          in Python and can consist of multiple lines.\n            The DataFrame
+          variable is called \"df\".\n            Examples:\n            - `df[''prod'']
+          = df[''X''] * df[''Y'']`\n            - `df = df[[''X'', ''prod'']]`\n            -
+          `df.insert(0, \"is_positive\", df[\"X\"] > 0)`\n\n    Outputs:\n        transformed_table:
+          Transformed table.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>",
+          "implementation": {"container": {"args": ["--table", {"inputPath": "table"},
+          "--transform-code", {"inputValue": "transform_code"}, "--transformed-table",
+          {"outputPath": "transformed_table"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''pandas==1.0.4''
+          || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+          ''pandas==1.0.4'' --user) && \"$0\" \"$@\"", "python3", "-u", "-c", "def
+          _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path),
+          exist_ok=True)\n    return file_path\n\ndef Pandas_Transform_DataFrame_in_CSV_format(\n    table_path,\n    transformed_table_path,\n    transform_code,\n):\n    ''''''Transform
+          DataFrame loaded from a CSV file.\n\n    Inputs:\n        table: Table to
+          transform.\n        transform_code: Transformation code. Code is written
+          in Python and can consist of multiple lines.\n            The DataFrame
+          variable is called \"df\".\n            Examples:\n            - `df[''prod'']
+          = df[''X''] * df[''Y'']`\n            - `df = df[[''X'', ''prod'']]`\n            -
+          `df.insert(0, \"is_positive\", df[\"X\"] > 0)`\n\n    Outputs:\n        transformed_table:
+          Transformed table.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>\n    ''''''\n    import
+          pandas\n\n    df = pandas.read_csv(\n        table_path,\n    )\n    # The
+          namespace is needed so that the code can replace `df`. For example df =
+          df[[''X'']]\n    namespace = locals()\n    exec(transform_code, namespace)\n    namespace[''df''].to_csv(\n        transformed_table_path,\n        index=False,\n    )\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Pandas Transform DataFrame
+          in CSV format'', description=''Transform DataFrame loaded from a CSV file.\\n\\n    Inputs:\\n        table:
+          Table to transform.\\n        transform_code: Transformation code. Code
+          is written in Python and can consist of multiple lines.\\n            The
+          DataFrame variable is called \"df\".\\n            Examples:\\n            -
+          `df[\\''prod\\''] = df[\\''X\\''] * df[\\''Y\\'']`\\n            - `df =
+          df[[\\''X\\'', \\''prod\\'']]`\\n            - `df.insert(0, \"is_positive\",
+          df[\"X\"] > 0)`\\n\\n    Outputs:\\n        transformed_table: Transformed
+          table.\\n\\n    Annotations:\\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>'')\n_parser.add_argument(\"--table\",
+          dest=\"table_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--transform-code\",
+          dest=\"transform_code\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--transformed-table\",
+          dest=\"transformed_table_path\", type=_make_parent_dirs_and_return_path,
+          required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = Pandas_Transform_DataFrame_in_CSV_format(**_parsed_args)\n"], "image":
+          "python:3.7"}}, "inputs": [{"name": "table", "type": "CSV"}, {"name": "transform_code",
+          "type": "PythonCode"}], "name": "Pandas Transform DataFrame in CSV format",
+          "outputs": [{"name": "transformed_table", "type": "CSV"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "58dc88349157bf128021708c316ce4eb60bc1de0a5a7dd3af45fabac3276d510", "url":
+          "https://raw.githubusercontent.com/kubeflow/pipelines/6162d55998b176b50267d351241100bb0ee715bc/components/pandas/Transform_DataFrame/in_CSV_format/component.yaml"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"transform_code": "df = df[[\"tips\"]]"}'}
+  - name: remove-header
+    container:
+      args: []
+      command:
+      - sh
+      - -exc
+      - |
+        mkdir -p "$(dirname "$1")"
+        tail -n +2 <"$0" >"$1"
+      - /tmp/inputs/table/data
+      - /tmp/outputs/table/data
+      image: alpine
+    inputs:
+      artifacts:
+      - {name: pandas-transform-dataframe-in-csv-format-transformed_table, path: /tmp/inputs/table/data}
+    outputs:
+      artifacts:
+      - {name: remove-header-table, path: /tmp/outputs/table/data}
+    metadata:
+      annotations: {author: Alexey Volkov <alexey.volkov@ark-kun.com>, pipelines.kubeflow.org/component_spec: '{"description":
+          "Remove the header line from CSV and TSV data (unconditionally)", "implementation":
+          {"container": {"command": ["sh", "-exc", "mkdir -p \"$(dirname \"$1\")\"\ntail
+          -n +2 <\"$0\" >\"$1\"\n", {"inputPath": "table"}, {"outputPath": "table"}],
+          "image": "alpine"}}, "inputs": [{"name": "table"}], "metadata": {"annotations":
+          {"author": "Alexey Volkov <alexey.volkov@ark-kun.com>"}}, "name": "Remove
+          header", "outputs": [{"name": "table"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "ba35ffea863855b956c3c50aefa0420ba3823949a6c059e6e3971cde960dc5a3", "url":
+          "https://raw.githubusercontent.com/kubeflow/pipelines/02c9638287468c849632cf9f7885b51de4c66f86/components/tables/Remove_header/component.yaml"}'}
+  - name: train-until-good-pipeline
+    dag:
+      tasks:
+      - {name: chicago-taxi-trips-dataset, template: chicago-taxi-trips-dataset}
+      - name: graph-train-until-low-error-1
+        template: graph-train-until-low-error-1
+        dependencies: [chicago-taxi-trips-dataset, remove-header, xgboost-train]
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{tasks.chicago-taxi-trips-dataset.outputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+          - {name: remove-header-table, from: '{{tasks.remove-header.outputs.artifacts.remove-header-table}}'}
+          - {name: xgboost-train-model, from: '{{tasks.xgboost-train.outputs.artifacts.xgboost-train-model}}'}
+      - name: pandas-transform-dataframe-in-csv-format
+        template: pandas-transform-dataframe-in-csv-format
+        dependencies: [chicago-taxi-trips-dataset]
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{tasks.chicago-taxi-trips-dataset.outputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+      - name: remove-header
+        template: remove-header
+        dependencies: [pandas-transform-dataframe-in-csv-format]
+        arguments:
+          artifacts:
+          - {name: pandas-transform-dataframe-in-csv-format-transformed_table, from: '{{tasks.pandas-transform-dataframe-in-csv-format.outputs.artifacts.pandas-transform-dataframe-in-csv-format-transformed_table}}'}
+      - name: xgboost-train
+        template: xgboost-train
+        dependencies: [chicago-taxi-trips-dataset]
+        arguments:
+          artifacts:
+          - {name: chicago-taxi-trips-dataset-Table, from: '{{tasks.chicago-taxi-trips-dataset.outputs.artifacts.chicago-taxi-trips-dataset-Table}}'}
+  - name: xgboost-predict
+    container:
+      args: [--data, /tmp/inputs/data/data, --model, /tmp/inputs/model/data, --label-column,
+        '0', --predictions, /tmp/outputs/predictions/data]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'xgboost==1.1.1' 'pandas==1.0.5' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+        -m pip install --quiet --no-warn-script-location 'xgboost==1.1.1' 'pandas==1.0.5'
+        --user) && "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def xgboost_predict(
+            data_path,  # Also supports LibSVM
+            model_path,
+            predictions_path,
+            label_column = None,
+        ):
+            '''Make predictions using a trained XGBoost model.
+
+            Args:
+                data_path: Path for the feature data in CSV format.
+                model_path: Path for the trained model in binary XGBoost format.
+                predictions_path: Output path for the predictions.
+                label_column: Column containing the label data.
+
+            Annotations:
+                author: Alexey Volkov <alexey.volkov@ark-kun.com>
+            '''
+            from pathlib import Path
+
+            import numpy
+            import pandas
+            import xgboost
+
+            df = pandas.read_csv(
+                data_path,
+            )
+
+            if label_column is not None:
+                df = df.drop(columns=[df.columns[label_column]])
+
+            testing_data = xgboost.DMatrix(
+                data=df,
+            )
+
+            model = xgboost.Booster(model_file=model_path)
+
+            predictions = model.predict(testing_data)
+
+            Path(predictions_path).parent.mkdir(parents=True, exist_ok=True)
+            numpy.savetxt(predictions_path, predictions)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Xgboost predict', description='Make predictions using a trained XGBoost model.\n\n    Args:\n        data_path: Path for the feature data in CSV format.\n        model_path: Path for the trained model in binary XGBoost format.\n        predictions_path: Output path for the predictions.\n        label_column: Column containing the label data.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>')
+        _parser.add_argument("--data", dest="data_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--model", dest="model_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--label-column", dest="label_column", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--predictions", dest="predictions_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = xgboost_predict(**_parsed_args)
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table, path: /tmp/inputs/data/data}
+      - {name: xgboost-train-2-model, path: /tmp/inputs/model/data}
+    outputs:
+      artifacts:
+      - {name: xgboost-predict-predictions, path: /tmp/outputs/predictions/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Make
+          predictions using a trained XGBoost model.\n\n    Args:\n        data_path:
+          Path for the feature data in CSV format.\n        model_path: Path for the
+          trained model in binary XGBoost format.\n        predictions_path: Output
+          path for the predictions.\n        label_column: Column containing the label
+          data.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>",
+          "implementation": {"container": {"args": ["--data", {"inputPath": "data"},
+          "--model", {"inputPath": "model"}, {"if": {"cond": {"isPresent": "label_column"},
+          "then": ["--label-column", {"inputValue": "label_column"}]}}, "--predictions",
+          {"outputPath": "predictions"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''xgboost==1.1.1''
+          ''pandas==1.0.5'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+          --quiet --no-warn-script-location ''xgboost==1.1.1'' ''pandas==1.0.5'' --user)
+          && \"$0\" \"$@\"", "python3", "-u", "-c", "def _make_parent_dirs_and_return_path(file_path:
+          str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return
+          file_path\n\ndef xgboost_predict(\n    data_path,  # Also supports LibSVM\n    model_path,\n    predictions_path,\n    label_column
+          = None,\n):\n    ''''''Make predictions using a trained XGBoost model.\n\n    Args:\n        data_path:
+          Path for the feature data in CSV format.\n        model_path: Path for the
+          trained model in binary XGBoost format.\n        predictions_path: Output
+          path for the predictions.\n        label_column: Column containing the label
+          data.\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>\n    ''''''\n    from
+          pathlib import Path\n\n    import numpy\n    import pandas\n    import xgboost\n\n    df
+          = pandas.read_csv(\n        data_path,\n    )\n\n    if label_column is
+          not None:\n        df = df.drop(columns=[df.columns[label_column]])\n\n    testing_data
+          = xgboost.DMatrix(\n        data=df,\n    )\n\n    model = xgboost.Booster(model_file=model_path)\n\n    predictions
+          = model.predict(testing_data)\n\n    Path(predictions_path).parent.mkdir(parents=True,
+          exist_ok=True)\n    numpy.savetxt(predictions_path, predictions)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Xgboost predict'', description=''Make
+          predictions using a trained XGBoost model.\\n\\n    Args:\\n        data_path:
+          Path for the feature data in CSV format.\\n        model_path: Path for
+          the trained model in binary XGBoost format.\\n        predictions_path:
+          Output path for the predictions.\\n        label_column: Column containing
+          the label data.\\n\\n    Annotations:\\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>'')\n_parser.add_argument(\"--data\",
+          dest=\"data_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model\",
+          dest=\"model_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-column\",
+          dest=\"label_column\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--predictions\",
+          dest=\"predictions_path\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = xgboost_predict(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs":
+          [{"name": "data", "type": "CSV"}, {"name": "model", "type": "XGBoostModel"},
+          {"name": "label_column", "optional": true, "type": "Integer"}], "name":
+          "Xgboost predict", "outputs": [{"name": "predictions", "type": "Text"}]}',
+        pipelines.kubeflow.org/component_ref: '{"digest": "ecdfaf32cff15b6abc3d0dd80365ce00577f1a19a058fbe201f515431cea1357",
+          "url": "https://raw.githubusercontent.com/kubeflow/pipelines/567c04c51ff00a1ee525b3458425b17adbe3df61/components/XGBoost/Predict/component.yaml"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"label_column": "0"}'}
+  - name: xgboost-train
+    container:
+      args: [--training-data, /tmp/inputs/training_data/data, --label-column, '0',
+        --num-iterations, '100', --objective, 'reg:squarederror', --model, /tmp/outputs/model/data,
+        --model-config, /tmp/outputs/model_config/data]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'xgboost==1.1.1' 'pandas==1.0.5' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+        -m pip install --quiet --no-warn-script-location 'xgboost==1.1.1' 'pandas==1.0.5'
+        --user) && "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def xgboost_train(
+            training_data_path,  # Also supports LibSVM
+            model_path,
+            model_config_path,
+            starting_model_path = None,
+
+            label_column = 0,
+            num_iterations = 10,
+            booster_params = None,
+
+            # Booster parameters
+            objective = 'reg:squarederror',
+            booster = 'gbtree',
+            learning_rate = 0.3,
+            min_split_loss = 0,
+            max_depth = 6,
+        ):
+            '''Train an XGBoost model.
+
+            Args:
+                training_data_path: Path for the training data in CSV format.
+                model_path: Output path for the trained model in binary XGBoost format.
+                model_config_path: Output path for the internal parameter configuration of Booster as a JSON string.
+                starting_model_path: Path for the existing trained model to start from.
+                label_column: Column containing the label data.
+                num_boost_rounds: Number of boosting iterations.
+                booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html
+                objective: The learning task and the corresponding learning objective.
+                    See https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters
+                    The most common values are:
+                    "reg:squarederror" - Regression with squared loss (default).
+                    "reg:logistic" - Logistic regression.
+                    "binary:logistic" - Logistic regression for binary classification, output probability.
+                    "binary:logitraw" - Logistic regression for binary classification, output score before logistic transformation
+                    "rank:pairwise" - Use LambdaMART to perform pairwise ranking where the pairwise loss is minimized
+                    "rank:ndcg" - Use LambdaMART to perform list-wise ranking where Normalized Discounted Cumulative Gain (NDCG) is maximized
+
+            Annotations:
+                author: Alexey Volkov <alexey.volkov@ark-kun.com>
+            '''
+            import pandas
+            import xgboost
+
+            df = pandas.read_csv(
+                training_data_path,
+            )
+
+            training_data = xgboost.DMatrix(
+                data=df.drop(columns=[df.columns[label_column]]),
+                label=df[df.columns[label_column]],
+            )
+
+            booster_params = booster_params or {}
+            booster_params.setdefault('objective', objective)
+            booster_params.setdefault('booster', booster)
+            booster_params.setdefault('learning_rate', learning_rate)
+            booster_params.setdefault('min_split_loss', min_split_loss)
+            booster_params.setdefault('max_depth', max_depth)
+
+            starting_model = None
+            if starting_model_path:
+                starting_model = xgboost.Booster(model_file=starting_model_path)
+
+            model = xgboost.train(
+                params=booster_params,
+                dtrain=training_data,
+                num_boost_round=num_iterations,
+                xgb_model=starting_model
+            )
+
+            # Saving the model in binary format
+            model.save_model(model_path)
+
+            model_config_str = model.save_config()
+            with open(model_config_path, 'w') as model_config_file:
+                model_config_file.write(model_config_str)
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Xgboost train', description='Train an XGBoost model.\n\n    Args:\n        training_data_path: Path for the training data in CSV format.\n        model_path: Output path for the trained model in binary XGBoost format.\n        model_config_path: Output path for the internal parameter configuration of Booster as a JSON string.\n        starting_model_path: Path for the existing trained model to start from.\n        label_column: Column containing the label data.\n        num_boost_rounds: Number of boosting iterations.\n        booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective: The learning task and the corresponding learning objective.\n            See https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The most common values are:\n            "reg:squarederror" - Regression with squared loss (default).\n            "reg:logistic" - Logistic regression.\n            "binary:logistic" - Logistic regression for binary classification, output probability.\n            "binary:logitraw" - Logistic regression for binary classification, output score before logistic transformation\n            "rank:pairwise" - Use LambdaMART to perform pairwise ranking where the pairwise loss is minimized\n            "rank:ndcg" - Use LambdaMART to perform list-wise ranking where Normalized Discounted Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>')
+        _parser.add_argument("--training-data", dest="training_data_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--starting-model", dest="starting_model_path", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--label-column", dest="label_column", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--num-iterations", dest="num_iterations", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--booster-params", dest="booster_params", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--objective", dest="objective", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--booster", dest="booster", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--learning-rate", dest="learning_rate", type=float, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--min-split-loss", dest="min_split_loss", type=float, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--max-depth", dest="max_depth", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--model", dest="model_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--model-config", dest="model_config_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = xgboost_train(**_parsed_args)
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: chicago-taxi-trips-dataset-Table, path: /tmp/inputs/training_data/data}
+    outputs:
+      artifacts:
+      - {name: xgboost-train-model, path: /tmp/outputs/model/data}
+      - {name: xgboost-train-model_config, path: /tmp/outputs/model_config/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Train
+          an XGBoost model.\n\n    Args:\n        training_data_path: Path for the
+          training data in CSV format.\n        model_path: Output path for the trained
+          model in binary XGBoost format.\n        model_config_path: Output path
+          for the internal parameter configuration of Booster as a JSON string.\n        starting_model_path:
+          Path for the existing trained model to start from.\n        label_column:
+          Column containing the label data.\n        num_boost_rounds: Number of boosting
+          iterations.\n        booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective:
+          The learning task and the corresponding learning objective.\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The
+          most common values are:\n            \"reg:squarederror\" - Regression with
+          squared loss (default).\n            \"reg:logistic\" - Logistic regression.\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>", "implementation": {"container":
+          {"args": ["--training-data", {"inputPath": "training_data"}, {"if": {"cond":
+          {"isPresent": "starting_model"}, "then": ["--starting-model", {"inputPath":
+          "starting_model"}]}}, {"if": {"cond": {"isPresent": "label_column"}, "then":
+          ["--label-column", {"inputValue": "label_column"}]}}, {"if": {"cond": {"isPresent":
+          "num_iterations"}, "then": ["--num-iterations", {"inputValue": "num_iterations"}]}},
+          {"if": {"cond": {"isPresent": "booster_params"}, "then": ["--booster-params",
+          {"inputValue": "booster_params"}]}}, {"if": {"cond": {"isPresent": "objective"},
+          "then": ["--objective", {"inputValue": "objective"}]}}, {"if": {"cond":
+          {"isPresent": "booster"}, "then": ["--booster", {"inputValue": "booster"}]}},
+          {"if": {"cond": {"isPresent": "learning_rate"}, "then": ["--learning-rate",
+          {"inputValue": "learning_rate"}]}}, {"if": {"cond": {"isPresent": "min_split_loss"},
+          "then": ["--min-split-loss", {"inputValue": "min_split_loss"}]}}, {"if":
+          {"cond": {"isPresent": "max_depth"}, "then": ["--max-depth", {"inputValue":
+          "max_depth"}]}}, "--model", {"outputPath": "model"}, "--model-config", {"outputPath":
+          "model_config"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''xgboost==1.1.1''
+          ''pandas==1.0.5'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+          --quiet --no-warn-script-location ''xgboost==1.1.1'' ''pandas==1.0.5'' --user)
+          && \"$0\" \"$@\"", "python3", "-u", "-c", "def _make_parent_dirs_and_return_path(file_path:
+          str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return
+          file_path\n\ndef xgboost_train(\n    training_data_path,  # Also supports
+          LibSVM\n    model_path,\n    model_config_path,\n    starting_model_path
+          = None,\n\n    label_column = 0,\n    num_iterations = 10,\n    booster_params
+          = None,\n\n    # Booster parameters\n    objective = ''reg:squarederror'',\n    booster
+          = ''gbtree'',\n    learning_rate = 0.3,\n    min_split_loss = 0,\n    max_depth
+          = 6,\n):\n    ''''''Train an XGBoost model.\n\n    Args:\n        training_data_path:
+          Path for the training data in CSV format.\n        model_path: Output path
+          for the trained model in binary XGBoost format.\n        model_config_path:
+          Output path for the internal parameter configuration of Booster as a JSON
+          string.\n        starting_model_path: Path for the existing trained model
+          to start from.\n        label_column: Column containing the label data.\n        num_boost_rounds:
+          Number of boosting iterations.\n        booster_params: Parameters for the
+          booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective:
+          The learning task and the corresponding learning objective.\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The
+          most common values are:\n            \"reg:squarederror\" - Regression with
+          squared loss (default).\n            \"reg:logistic\" - Logistic regression.\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>\n    ''''''\n    import pandas\n    import
+          xgboost\n\n    df = pandas.read_csv(\n        training_data_path,\n    )\n\n    training_data
+          = xgboost.DMatrix(\n        data=df.drop(columns=[df.columns[label_column]]),\n        label=df[df.columns[label_column]],\n    )\n\n    booster_params
+          = booster_params or {}\n    booster_params.setdefault(''objective'', objective)\n    booster_params.setdefault(''booster'',
+          booster)\n    booster_params.setdefault(''learning_rate'', learning_rate)\n    booster_params.setdefault(''min_split_loss'',
+          min_split_loss)\n    booster_params.setdefault(''max_depth'', max_depth)\n\n    starting_model
+          = None\n    if starting_model_path:\n        starting_model = xgboost.Booster(model_file=starting_model_path)\n\n    model
+          = xgboost.train(\n        params=booster_params,\n        dtrain=training_data,\n        num_boost_round=num_iterations,\n        xgb_model=starting_model\n    )\n\n    #
+          Saving the model in binary format\n    model.save_model(model_path)\n\n    model_config_str
+          = model.save_config()\n    with open(model_config_path, ''w'') as model_config_file:\n        model_config_file.write(model_config_str)\n\nimport
+          json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Xgboost
+          train'', description=''Train an XGBoost model.\\n\\n    Args:\\n        training_data_path:
+          Path for the training data in CSV format.\\n        model_path: Output path
+          for the trained model in binary XGBoost format.\\n        model_config_path:
+          Output path for the internal parameter configuration of Booster as a JSON
+          string.\\n        starting_model_path: Path for the existing trained model
+          to start from.\\n        label_column: Column containing the label data.\\n        num_boost_rounds:
+          Number of boosting iterations.\\n        booster_params: Parameters for
+          the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\\n        objective:
+          The learning task and the corresponding learning objective.\\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\\n            The
+          most common values are:\\n            \"reg:squarederror\" - Regression
+          with squared loss (default).\\n            \"reg:logistic\" - Logistic regression.\\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\\n\\n    Annotations:\\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>'')\n_parser.add_argument(\"--training-data\",
+          dest=\"training_data_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--starting-model\",
+          dest=\"starting_model_path\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-column\",
+          dest=\"label_column\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--num-iterations\",
+          dest=\"num_iterations\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--booster-params\",
+          dest=\"booster_params\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--objective\",
+          dest=\"objective\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--booster\",
+          dest=\"booster\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--learning-rate\",
+          dest=\"learning_rate\", type=float, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--min-split-loss\",
+          dest=\"min_split_loss\", type=float, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--max-depth\",
+          dest=\"max_depth\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model\",
+          dest=\"model_path\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-config\", dest=\"model_config_path\",
+          type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = xgboost_train(**_parsed_args)\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "training_data", "type": "CSV"},
+          {"name": "starting_model", "optional": true, "type": "XGBoostModel"}, {"default":
+          "0", "name": "label_column", "optional": true, "type": "Integer"}, {"default":
+          "10", "name": "num_iterations", "optional": true, "type": "Integer"}, {"name":
+          "booster_params", "optional": true, "type": "JsonObject"}, {"default": "reg:squarederror",
+          "name": "objective", "optional": true, "type": "String"}, {"default": "gbtree",
+          "name": "booster", "optional": true, "type": "String"}, {"default": "0.3",
+          "name": "learning_rate", "optional": true, "type": "Float"}, {"default":
+          "0", "name": "min_split_loss", "optional": true, "type": "Float"}, {"default":
+          "6", "name": "max_depth", "optional": true, "type": "Integer"}], "name":
+          "Xgboost train", "outputs": [{"name": "model", "type": "XGBoostModel"},
+          {"name": "model_config", "type": "XGBoostModelConfig"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "09b80053da29f8f51575b42e5d2e8ad4b7bdcc92a02c3744e189b1f597006b38", "url":
+          "https://raw.githubusercontent.com/kubeflow/pipelines/567c04c51ff00a1ee525b3458425b17adbe3df61/components/XGBoost/Train/component.yaml"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"label_column": "0", "num_iterations":
+          "100", "objective": "reg:squarederror"}'}
+  - name: xgboost-train-2
+    container:
+      args: [--training-data, /tmp/inputs/training_data/data, --starting-model, /tmp/inputs/starting_model/data,
+        --label-column, '0', --num-iterations, '50', --objective, 'reg:squarederror',
+        --model, /tmp/outputs/model/data, --model-config, /tmp/outputs/model_config/data]
+      command:
+      - sh
+      - -c
+      - (PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location
+        'xgboost==1.1.1' 'pandas==1.0.5' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3
+        -m pip install --quiet --no-warn-script-location 'xgboost==1.1.1' 'pandas==1.0.5'
+        --user) && "$0" "$@"
+      - python3
+      - -u
+      - -c
+      - |
+        def _make_parent_dirs_and_return_path(file_path: str):
+            import os
+            os.makedirs(os.path.dirname(file_path), exist_ok=True)
+            return file_path
+
+        def xgboost_train(
+            training_data_path,  # Also supports LibSVM
+            model_path,
+            model_config_path,
+            starting_model_path = None,
+
+            label_column = 0,
+            num_iterations = 10,
+            booster_params = None,
+
+            # Booster parameters
+            objective = 'reg:squarederror',
+            booster = 'gbtree',
+            learning_rate = 0.3,
+            min_split_loss = 0,
+            max_depth = 6,
+        ):
+            '''Train an XGBoost model.
+
+            Args:
+                training_data_path: Path for the training data in CSV format.
+                model_path: Output path for the trained model in binary XGBoost format.
+                model_config_path: Output path for the internal parameter configuration of Booster as a JSON string.
+                starting_model_path: Path for the existing trained model to start from.
+                label_column: Column containing the label data.
+                num_boost_rounds: Number of boosting iterations.
+                booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html
+                objective: The learning task and the corresponding learning objective.
+                    See https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters
+                    The most common values are:
+                    "reg:squarederror" - Regression with squared loss (default).
+                    "reg:logistic" - Logistic regression.
+                    "binary:logistic" - Logistic regression for binary classification, output probability.
+                    "binary:logitraw" - Logistic regression for binary classification, output score before logistic transformation
+                    "rank:pairwise" - Use LambdaMART to perform pairwise ranking where the pairwise loss is minimized
+                    "rank:ndcg" - Use LambdaMART to perform list-wise ranking where Normalized Discounted Cumulative Gain (NDCG) is maximized
+
+            Annotations:
+                author: Alexey Volkov <alexey.volkov@ark-kun.com>
+            '''
+            import pandas
+            import xgboost
+
+            df = pandas.read_csv(
+                training_data_path,
+            )
+
+            training_data = xgboost.DMatrix(
+                data=df.drop(columns=[df.columns[label_column]]),
+                label=df[df.columns[label_column]],
+            )
+
+            booster_params = booster_params or {}
+            booster_params.setdefault('objective', objective)
+            booster_params.setdefault('booster', booster)
+            booster_params.setdefault('learning_rate', learning_rate)
+            booster_params.setdefault('min_split_loss', min_split_loss)
+            booster_params.setdefault('max_depth', max_depth)
+
+            starting_model = None
+            if starting_model_path:
+                starting_model = xgboost.Booster(model_file=starting_model_path)
+
+            model = xgboost.train(
+                params=booster_params,
+                dtrain=training_data,
+                num_boost_round=num_iterations,
+                xgb_model=starting_model
+            )
+
+            # Saving the model in binary format
+            model.save_model(model_path)
+
+            model_config_str = model.save_config()
+            with open(model_config_path, 'w') as model_config_file:
+                model_config_file.write(model_config_str)
+
+        import json
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Xgboost train', description='Train an XGBoost model.\n\n    Args:\n        training_data_path: Path for the training data in CSV format.\n        model_path: Output path for the trained model in binary XGBoost format.\n        model_config_path: Output path for the internal parameter configuration of Booster as a JSON string.\n        starting_model_path: Path for the existing trained model to start from.\n        label_column: Column containing the label data.\n        num_boost_rounds: Number of boosting iterations.\n        booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective: The learning task and the corresponding learning objective.\n            See https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The most common values are:\n            "reg:squarederror" - Regression with squared loss (default).\n            "reg:logistic" - Logistic regression.\n            "binary:logistic" - Logistic regression for binary classification, output probability.\n            "binary:logitraw" - Logistic regression for binary classification, output score before logistic transformation\n            "rank:pairwise" - Use LambdaMART to perform pairwise ranking where the pairwise loss is minimized\n            "rank:ndcg" - Use LambdaMART to perform list-wise ranking where Normalized Discounted Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author: Alexey Volkov <alexey.volkov@ark-kun.com>')
+        _parser.add_argument("--training-data", dest="training_data_path", type=str, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--starting-model", dest="starting_model_path", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--label-column", dest="label_column", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--num-iterations", dest="num_iterations", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--booster-params", dest="booster_params", type=json.loads, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--objective", dest="objective", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--booster", dest="booster", type=str, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--learning-rate", dest="learning_rate", type=float, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--min-split-loss", dest="min_split_loss", type=float, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--max-depth", dest="max_depth", type=int, required=False, default=argparse.SUPPRESS)
+        _parser.add_argument("--model", dest="model_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--model-config", dest="model_config_path", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = xgboost_train(**_parsed_args)
+      image: python:3.7
+    inputs:
+      artifacts:
+      - {name: xgboost-train-model, path: /tmp/inputs/starting_model/data}
+      - {name: chicago-taxi-trips-dataset-Table, path: /tmp/inputs/training_data/data}
+    outputs:
+      artifacts:
+      - {name: xgboost-train-2-model, path: /tmp/outputs/model/data}
+      - {name: xgboost-train-2-model_config, path: /tmp/outputs/model_config/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Train
+          an XGBoost model.\n\n    Args:\n        training_data_path: Path for the
+          training data in CSV format.\n        model_path: Output path for the trained
+          model in binary XGBoost format.\n        model_config_path: Output path
+          for the internal parameter configuration of Booster as a JSON string.\n        starting_model_path:
+          Path for the existing trained model to start from.\n        label_column:
+          Column containing the label data.\n        num_boost_rounds: Number of boosting
+          iterations.\n        booster_params: Parameters for the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective:
+          The learning task and the corresponding learning objective.\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The
+          most common values are:\n            \"reg:squarederror\" - Regression with
+          squared loss (default).\n            \"reg:logistic\" - Logistic regression.\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>", "implementation": {"container":
+          {"args": ["--training-data", {"inputPath": "training_data"}, {"if": {"cond":
+          {"isPresent": "starting_model"}, "then": ["--starting-model", {"inputPath":
+          "starting_model"}]}}, {"if": {"cond": {"isPresent": "label_column"}, "then":
+          ["--label-column", {"inputValue": "label_column"}]}}, {"if": {"cond": {"isPresent":
+          "num_iterations"}, "then": ["--num-iterations", {"inputValue": "num_iterations"}]}},
+          {"if": {"cond": {"isPresent": "booster_params"}, "then": ["--booster-params",
+          {"inputValue": "booster_params"}]}}, {"if": {"cond": {"isPresent": "objective"},
+          "then": ["--objective", {"inputValue": "objective"}]}}, {"if": {"cond":
+          {"isPresent": "booster"}, "then": ["--booster", {"inputValue": "booster"}]}},
+          {"if": {"cond": {"isPresent": "learning_rate"}, "then": ["--learning-rate",
+          {"inputValue": "learning_rate"}]}}, {"if": {"cond": {"isPresent": "min_split_loss"},
+          "then": ["--min-split-loss", {"inputValue": "min_split_loss"}]}}, {"if":
+          {"cond": {"isPresent": "max_depth"}, "then": ["--max-depth", {"inputValue":
+          "max_depth"}]}}, "--model", {"outputPath": "model"}, "--model-config", {"outputPath":
+          "model_config"}], "command": ["sh", "-c", "(PIP_DISABLE_PIP_VERSION_CHECK=1
+          python3 -m pip install --quiet --no-warn-script-location ''xgboost==1.1.1''
+          ''pandas==1.0.5'' || PIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install
+          --quiet --no-warn-script-location ''xgboost==1.1.1'' ''pandas==1.0.5'' --user)
+          && \"$0\" \"$@\"", "python3", "-u", "-c", "def _make_parent_dirs_and_return_path(file_path:
+          str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return
+          file_path\n\ndef xgboost_train(\n    training_data_path,  # Also supports
+          LibSVM\n    model_path,\n    model_config_path,\n    starting_model_path
+          = None,\n\n    label_column = 0,\n    num_iterations = 10,\n    booster_params
+          = None,\n\n    # Booster parameters\n    objective = ''reg:squarederror'',\n    booster
+          = ''gbtree'',\n    learning_rate = 0.3,\n    min_split_loss = 0,\n    max_depth
+          = 6,\n):\n    ''''''Train an XGBoost model.\n\n    Args:\n        training_data_path:
+          Path for the training data in CSV format.\n        model_path: Output path
+          for the trained model in binary XGBoost format.\n        model_config_path:
+          Output path for the internal parameter configuration of Booster as a JSON
+          string.\n        starting_model_path: Path for the existing trained model
+          to start from.\n        label_column: Column containing the label data.\n        num_boost_rounds:
+          Number of boosting iterations.\n        booster_params: Parameters for the
+          booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\n        objective:
+          The learning task and the corresponding learning objective.\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\n            The
+          most common values are:\n            \"reg:squarederror\" - Regression with
+          squared loss (default).\n            \"reg:logistic\" - Logistic regression.\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\n\n    Annotations:\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>\n    ''''''\n    import pandas\n    import
+          xgboost\n\n    df = pandas.read_csv(\n        training_data_path,\n    )\n\n    training_data
+          = xgboost.DMatrix(\n        data=df.drop(columns=[df.columns[label_column]]),\n        label=df[df.columns[label_column]],\n    )\n\n    booster_params
+          = booster_params or {}\n    booster_params.setdefault(''objective'', objective)\n    booster_params.setdefault(''booster'',
+          booster)\n    booster_params.setdefault(''learning_rate'', learning_rate)\n    booster_params.setdefault(''min_split_loss'',
+          min_split_loss)\n    booster_params.setdefault(''max_depth'', max_depth)\n\n    starting_model
+          = None\n    if starting_model_path:\n        starting_model = xgboost.Booster(model_file=starting_model_path)\n\n    model
+          = xgboost.train(\n        params=booster_params,\n        dtrain=training_data,\n        num_boost_round=num_iterations,\n        xgb_model=starting_model\n    )\n\n    #
+          Saving the model in binary format\n    model.save_model(model_path)\n\n    model_config_str
+          = model.save_config()\n    with open(model_config_path, ''w'') as model_config_file:\n        model_config_file.write(model_config_str)\n\nimport
+          json\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Xgboost
+          train'', description=''Train an XGBoost model.\\n\\n    Args:\\n        training_data_path:
+          Path for the training data in CSV format.\\n        model_path: Output path
+          for the trained model in binary XGBoost format.\\n        model_config_path:
+          Output path for the internal parameter configuration of Booster as a JSON
+          string.\\n        starting_model_path: Path for the existing trained model
+          to start from.\\n        label_column: Column containing the label data.\\n        num_boost_rounds:
+          Number of boosting iterations.\\n        booster_params: Parameters for
+          the booster. See https://xgboost.readthedocs.io/en/latest/parameter.html\\n        objective:
+          The learning task and the corresponding learning objective.\\n            See
+          https://xgboost.readthedocs.io/en/latest/parameter.html#learning-task-parameters\\n            The
+          most common values are:\\n            \"reg:squarederror\" - Regression
+          with squared loss (default).\\n            \"reg:logistic\" - Logistic regression.\\n            \"binary:logistic\"
+          - Logistic regression for binary classification, output probability.\\n            \"binary:logitraw\"
+          - Logistic regression for binary classification, output score before logistic
+          transformation\\n            \"rank:pairwise\" - Use LambdaMART to perform
+          pairwise ranking where the pairwise loss is minimized\\n            \"rank:ndcg\"
+          - Use LambdaMART to perform list-wise ranking where Normalized Discounted
+          Cumulative Gain (NDCG) is maximized\\n\\n    Annotations:\\n        author:
+          Alexey Volkov <alexey.volkov@ark-kun.com>'')\n_parser.add_argument(\"--training-data\",
+          dest=\"training_data_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--starting-model\",
+          dest=\"starting_model_path\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--label-column\",
+          dest=\"label_column\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--num-iterations\",
+          dest=\"num_iterations\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--booster-params\",
+          dest=\"booster_params\", type=json.loads, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--objective\",
+          dest=\"objective\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--booster\",
+          dest=\"booster\", type=str, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--learning-rate\",
+          dest=\"learning_rate\", type=float, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--min-split-loss\",
+          dest=\"min_split_loss\", type=float, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--max-depth\",
+          dest=\"max_depth\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model\",
+          dest=\"model_path\", type=_make_parent_dirs_and_return_path, required=True,
+          default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-config\", dest=\"model_config_path\",
+          type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args
+          = vars(_parser.parse_args())\n\n_outputs = xgboost_train(**_parsed_args)\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "training_data", "type": "CSV"},
+          {"name": "starting_model", "optional": true, "type": "XGBoostModel"}, {"default":
+          "0", "name": "label_column", "optional": true, "type": "Integer"}, {"default":
+          "10", "name": "num_iterations", "optional": true, "type": "Integer"}, {"name":
+          "booster_params", "optional": true, "type": "JsonObject"}, {"default": "reg:squarederror",
+          "name": "objective", "optional": true, "type": "String"}, {"default": "gbtree",
+          "name": "booster", "optional": true, "type": "String"}, {"default": "0.3",
+          "name": "learning_rate", "optional": true, "type": "Float"}, {"default":
+          "0", "name": "min_split_loss", "optional": true, "type": "Float"}, {"default":
+          "6", "name": "max_depth", "optional": true, "type": "Integer"}], "name":
+          "Xgboost train", "outputs": [{"name": "model", "type": "XGBoostModel"},
+          {"name": "model_config", "type": "XGBoostModelConfig"}]}', pipelines.kubeflow.org/component_ref: '{"digest":
+          "09b80053da29f8f51575b42e5d2e8ad4b7bdcc92a02c3744e189b1f597006b38", "url":
+          "https://raw.githubusercontent.com/kubeflow/pipelines/567c04c51ff00a1ee525b3458425b17adbe3df61/components/XGBoost/Train/component.yaml"}',
+        pipelines.kubeflow.org/arguments.parameters: '{"label_column": "0", "num_iterations":
+          "50", "objective": "reg:squarederror"}'}
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner

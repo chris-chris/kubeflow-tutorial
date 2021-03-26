@@ -1,0 +1,1 @@
+multipass launch --name kubeflow --mem 16G --disk 50G --cpus 4
