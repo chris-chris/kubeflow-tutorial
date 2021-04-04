@@ -1,0 +1,132 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: simple-sci-kit-kf-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.5.0-rc.2, pipelines.kubeflow.org/pipeline_compilation_time: '2021-04-04T16:14:25.709465',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "A simple end to end sci-kit
+      seldon kf pipeline", "inputs": [{"default": "index.docker.io/seldonio", "name":
+      "docker_org", "optional": true}, {"default": "0.2", "name": "train_container_version",
+      "optional": true}, {"default": "0.1", "name": "serve_container_version", "optional":
+      true}], "name": "Simple sci-kit KF Pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.5.0-rc.2}
+spec:
+  entrypoint: simple-sci-kit-kf-pipeline
+  templates:
+  - name: create-pvc
+    resource:
+      action: create
+      manifest: |
+        apiVersion: v1
+        kind: PersistentVolumeClaim
+        metadata:
+          name: '{{workflow.name}}-nfs-1'
+        spec:
+          accessModes:
+          - ReadWriteOnce
+          resources:
+            requests:
+              storage: 10G
+    outputs:
+      parameters:
+      - name: create-pvc-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: create-pvc-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+      - name: create-pvc-size
+        valueFrom: {jsonPath: '{.status.capacity.storage}'}
+  - name: serve
+    resource:
+      action: create
+      successCondition: status.state == Available
+      manifest: |
+        apiVersion: machinelearning.seldon.io/v1alpha2
+        kind: SeldonDeployment
+        metadata:
+          labels:
+            app: seldon
+          name: mnist-classifier
+        spec:
+          annotations:
+            deployment_version: v1
+            project_name: MNIST Example
+          name: mnist-classifier
+          predictors:
+          - annotations:
+              predictor_version: v1
+            componentSpecs:
+            - spec:
+                containers:
+                - image: '{{inputs.parameters.docker_org}}/skmnistclassifier_runtime:{{inputs.parameters.serve_container_version}}'
+                  imagePullPolicy: Always
+                  name: mnist-classifier
+                  volumeMounts:
+                  - mountPath: /data
+                    name: persistent-storage
+                terminationGracePeriodSeconds: 1
+                volumes:
+                - name: persistent-storage
+                  persistentVolumeClaim:
+                    claimName: '{{inputs.parameters.create-pvc-name}}'
+            graph:
+              children: []
+              endpoint:
+                type: REST
+              name: mnist-classifier
+              type: MODEL
+            name: mnist-classifier
+            replicas: 1
+    inputs:
+      parameters:
+      - {name: create-pvc-name}
+      - {name: docker_org}
+      - {name: serve_container_version}
+    outputs:
+      parameters:
+      - name: serve-manifest
+        valueFrom: {jsonPath: '{}'}
+      - name: serve-name
+        valueFrom: {jsonPath: '{.metadata.name}'}
+  - name: simple-sci-kit-kf-pipeline
+    inputs:
+      parameters:
+      - {name: docker_org}
+      - {name: serve_container_version}
+      - {name: train_container_version}
+    dag:
+      tasks:
+      - {name: create-pvc, template: create-pvc}
+      - name: serve
+        template: serve
+        dependencies: [create-pvc, sk-train]
+        arguments:
+          parameters:
+          - {name: create-pvc-name, value: '{{tasks.create-pvc.outputs.parameters.create-pvc-name}}'}
+          - {name: docker_org, value: '{{inputs.parameters.docker_org}}'}
+          - {name: serve_container_version, value: '{{inputs.parameters.serve_container_version}}'}
+      - name: sk-train
+        template: sk-train
+        dependencies: [create-pvc]
+        arguments:
+          parameters:
+          - {name: create-pvc-name, value: '{{tasks.create-pvc.outputs.parameters.create-pvc-name}}'}
+          - {name: docker_org, value: '{{inputs.parameters.docker_org}}'}
+          - {name: train_container_version, value: '{{inputs.parameters.train_container_version}}'}
+  - name: sk-train
+    container:
+      image: '{{inputs.parameters.docker_org}}/skmnistclassifier_trainer:{{inputs.parameters.train_container_version}}'
+      volumeMounts:
+      - {mountPath: /data, name: create-pvc}
+    inputs:
+      parameters:
+      - {name: create-pvc-name}
+      - {name: docker_org}
+      - {name: train_container_version}
+    volumes:
+    - name: create-pvc
+      persistentVolumeClaim: {claimName: '{{inputs.parameters.create-pvc-name}}'}
+  arguments:
+    parameters:
+    - {name: docker_org, value: index.docker.io/seldonio}
+    - {name: train_container_version, value: '0.2'}
+    - {name: serve_container_version, value: '0.1'}
+  serviceAccountName: pipeline-runner

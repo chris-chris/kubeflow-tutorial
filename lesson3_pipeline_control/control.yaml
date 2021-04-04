@@ -1,0 +1,511 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Workflow
+metadata:
+  generateName: conditional-execution-pipeline-
+  annotations: {pipelines.kubeflow.org/kfp_sdk_version: 1.5.0-rc.2, pipelines.kubeflow.org/pipeline_compilation_time: '2021-04-04T17:39:09.256839',
+    pipelines.kubeflow.org/pipeline_spec: '{"description": "Shows how to use dsl.Condition().",
+      "name": "Conditional execution pipeline"}'}
+  labels: {pipelines.kubeflow.org/kfp_sdk_version: 1.5.0-rc.2}
+spec:
+  entrypoint: conditional-execution-pipeline
+  templates:
+  - name: condition-1
+    dag:
+      tasks:
+      - name: condition-2
+        template: condition-2
+        when: '{{tasks.get-random-int-op.outputs.parameters.get-random-int-op-Output}}
+          > 5'
+        dependencies: [get-random-int-op]
+        arguments:
+          parameters:
+          - {name: get-random-int-op-Output, value: '{{tasks.get-random-int-op.outputs.parameters.get-random-int-op-Output}}'}
+      - name: condition-3
+        template: condition-3
+        when: '{{tasks.get-random-int-op.outputs.parameters.get-random-int-op-Output}}
+          <= 5'
+        dependencies: [get-random-int-op]
+        arguments:
+          parameters:
+          - {name: get-random-int-op-Output, value: '{{tasks.get-random-int-op.outputs.parameters.get-random-int-op-Output}}'}
+      - {name: get-random-int-op, template: get-random-int-op}
+  - name: condition-2
+    inputs:
+      parameters:
+      - {name: get-random-int-op-Output}
+    dag:
+      tasks:
+      - name: print-op
+        template: print-op
+        arguments:
+          parameters:
+          - {name: get-random-int-op-Output, value: '{{inputs.parameters.get-random-int-op-Output}}'}
+  - name: condition-3
+    inputs:
+      parameters:
+      - {name: get-random-int-op-Output}
+    dag:
+      tasks:
+      - name: print-op-2
+        template: print-op-2
+        arguments:
+          parameters:
+          - {name: get-random-int-op-Output, value: '{{inputs.parameters.get-random-int-op-Output}}'}
+  - name: condition-4
+    dag:
+      tasks:
+      - name: condition-5
+        template: condition-5
+        when: '{{tasks.get-random-int-op-2.outputs.parameters.get-random-int-op-2-Output}}
+          > 15'
+        dependencies: [get-random-int-op-2]
+        arguments:
+          parameters:
+          - {name: get-random-int-op-2-Output, value: '{{tasks.get-random-int-op-2.outputs.parameters.get-random-int-op-2-Output}}'}
+      - name: condition-6
+        template: condition-6
+        when: '{{tasks.get-random-int-op-2.outputs.parameters.get-random-int-op-2-Output}}
+          <= 15'
+        dependencies: [get-random-int-op-2]
+        arguments:
+          parameters:
+          - {name: get-random-int-op-2-Output, value: '{{tasks.get-random-int-op-2.outputs.parameters.get-random-int-op-2-Output}}'}
+      - {name: get-random-int-op-2, template: get-random-int-op-2}
+  - name: condition-5
+    inputs:
+      parameters:
+      - {name: get-random-int-op-2-Output}
+    dag:
+      tasks:
+      - name: print-op-3
+        template: print-op-3
+        arguments:
+          parameters:
+          - {name: get-random-int-op-2-Output, value: '{{inputs.parameters.get-random-int-op-2-Output}}'}
+  - name: condition-6
+    inputs:
+      parameters:
+      - {name: get-random-int-op-2-Output}
+    dag:
+      tasks:
+      - name: print-op-4
+        template: print-op-4
+        arguments:
+          parameters:
+          - {name: get-random-int-op-2-Output, value: '{{inputs.parameters.get-random-int-op-2-Output}}'}
+  - name: conditional-execution-pipeline
+    dag:
+      tasks:
+      - name: condition-1
+        template: condition-1
+        when: '"{{tasks.flip-coin-op.outputs.parameters.flip-coin-op-Output}}" ==
+          "heads"'
+        dependencies: [flip-coin-op]
+      - name: condition-4
+        template: condition-4
+        when: '"{{tasks.flip-coin-op.outputs.parameters.flip-coin-op-Output}}" ==
+          "tails"'
+        dependencies: [flip-coin-op]
+      - {name: flip-coin-op, template: flip-coin-op}
+  - name: flip-coin-op
+    container:
+      args: ['----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def flip_coin_op():
+            """Flip a coin and output heads or tails randomly."""
+            import random
+            result = random.choice(['heads', 'tails'])
+            print(result)
+            return result
+
+        def _serialize_str(str_value: str) -> str:
+            if not isinstance(str_value, str):
+                raise TypeError('Value "{}" has type "{}" instead of str.'.format(str(str_value), str(type(str_value))))
+            return str_value
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Flip coin op', description='Flip a coin and output heads or tails randomly.')
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = flip_coin_op(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_str,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    outputs:
+      parameters:
+      - name: flip-coin-op-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: flip-coin-op-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Flip
+          a coin and output heads or tails randomly.", "implementation": {"container":
+          {"args": ["----output-paths", {"outputPath": "Output"}], "command": ["sh",
+          "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3
+          -u \"$program_path\" \"$@\"\n", "def flip_coin_op():\n    \"\"\"Flip a coin
+          and output heads or tails randomly.\"\"\"\n    import random\n    result
+          = random.choice([''heads'', ''tails''])\n    print(result)\n    return result\n\ndef
+          _serialize_str(str_value: str) -> str:\n    if not isinstance(str_value,
+          str):\n        raise TypeError(''Value \"{}\" has type \"{}\" instead of
+          str.''.format(str(str_value), str(type(str_value))))\n    return str_value\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Flip coin op'', description=''Flip
+          a coin and output heads or tails randomly.'')\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = flip_coin_op(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_str,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "name": "Flip coin op", "outputs": [{"name": "Output",
+          "type": "String"}]}', pipelines.kubeflow.org/component_ref: '{}'}
+  - name: get-random-int-op
+    container:
+      args: [--minimum, '0', --maximum, '9', '----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def get_random_int_op(minimum, maximum):
+            """Generate a random number between minimum and maximum (inclusive)."""
+            import random
+            result = random.randint(minimum, maximum)
+            print(result)
+            return result
+
+        def _serialize_int(int_value: int) -> str:
+            if isinstance(int_value, str):
+                return int_value
+            if not isinstance(int_value, int):
+                raise TypeError('Value "{}" has type "{}" instead of int.'.format(str(int_value), str(type(int_value))))
+            return str(int_value)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Get random int op', description='Generate a random number between minimum and maximum (inclusive).')
+        _parser.add_argument("--minimum", dest="minimum", type=int, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--maximum", dest="maximum", type=int, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = get_random_int_op(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_int,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    outputs:
+      parameters:
+      - name: get-random-int-op-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: get-random-int-op-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
+          a random number between minimum and maximum (inclusive).", "implementation":
+          {"container": {"args": ["--minimum", {"inputValue": "minimum"}, "--maximum",
+          {"inputValue": "maximum"}, "----output-paths", {"outputPath": "Output"}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def get_random_int_op(minimum,
+          maximum):\n    \"\"\"Generate a random number between minimum and maximum
+          (inclusive).\"\"\"\n    import random\n    result = random.randint(minimum,
+          maximum)\n    print(result)\n    return result\n\ndef _serialize_int(int_value:
+          int) -> str:\n    if isinstance(int_value, str):\n        return int_value\n    if
+          not isinstance(int_value, int):\n        raise TypeError(''Value \"{}\"
+          has type \"{}\" instead of int.''.format(str(int_value), str(type(int_value))))\n    return
+          str(int_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Get
+          random int op'', description=''Generate a random number between minimum
+          and maximum (inclusive).'')\n_parser.add_argument(\"--minimum\", dest=\"minimum\",
+          type=int, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--maximum\",
+          dest=\"maximum\", type=int, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_random_int_op(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_int,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "minimum", "type": "Integer"},
+          {"name": "maximum", "type": "Integer"}], "name": "Get random int op", "outputs":
+          [{"name": "Output", "type": "Integer"}]}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"maximum": "9", "minimum":
+          "0"}'}
+  - name: get-random-int-op-2
+    container:
+      args: [--minimum, '10', --maximum, '19', '----output-paths', /tmp/outputs/Output/data]
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def get_random_int_op(minimum, maximum):
+            """Generate a random number between minimum and maximum (inclusive)."""
+            import random
+            result = random.randint(minimum, maximum)
+            print(result)
+            return result
+
+        def _serialize_int(int_value: int) -> str:
+            if isinstance(int_value, str):
+                return int_value
+            if not isinstance(int_value, int):
+                raise TypeError('Value "{}" has type "{}" instead of int.'.format(str(int_value), str(type(int_value))))
+            return str(int_value)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Get random int op', description='Generate a random number between minimum and maximum (inclusive).')
+        _parser.add_argument("--minimum", dest="minimum", type=int, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("--maximum", dest="maximum", type=int, required=True, default=argparse.SUPPRESS)
+        _parser.add_argument("----output-paths", dest="_output_paths", type=str, nargs=1)
+        _parsed_args = vars(_parser.parse_args())
+        _output_files = _parsed_args.pop("_output_paths", [])
+
+        _outputs = get_random_int_op(**_parsed_args)
+
+        _outputs = [_outputs]
+
+        _output_serializers = [
+            _serialize_int,
+
+        ]
+
+        import os
+        for idx, output_file in enumerate(_output_files):
+            try:
+                os.makedirs(os.path.dirname(output_file))
+            except OSError:
+                pass
+            with open(output_file, 'w') as f:
+                f.write(_output_serializers[idx](_outputs[idx]))
+      image: python:3.7
+    outputs:
+      parameters:
+      - name: get-random-int-op-2-Output
+        valueFrom: {path: /tmp/outputs/Output/data}
+      artifacts:
+      - {name: get-random-int-op-2-Output, path: /tmp/outputs/Output/data}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Generate
+          a random number between minimum and maximum (inclusive).", "implementation":
+          {"container": {"args": ["--minimum", {"inputValue": "minimum"}, "--maximum",
+          {"inputValue": "maximum"}, "----output-paths", {"outputPath": "Output"}],
+          "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\" \"$0\" >
+          \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def get_random_int_op(minimum,
+          maximum):\n    \"\"\"Generate a random number between minimum and maximum
+          (inclusive).\"\"\"\n    import random\n    result = random.randint(minimum,
+          maximum)\n    print(result)\n    return result\n\ndef _serialize_int(int_value:
+          int) -> str:\n    if isinstance(int_value, str):\n        return int_value\n    if
+          not isinstance(int_value, int):\n        raise TypeError(''Value \"{}\"
+          has type \"{}\" instead of int.''.format(str(int_value), str(type(int_value))))\n    return
+          str(int_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog=''Get
+          random int op'', description=''Generate a random number between minimum
+          and maximum (inclusive).'')\n_parser.add_argument(\"--minimum\", dest=\"minimum\",
+          type=int, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--maximum\",
+          dest=\"maximum\", type=int, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\",
+          dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files
+          = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = get_random_int_op(**_parsed_args)\n\n_outputs
+          = [_outputs]\n\n_output_serializers = [\n    _serialize_int,\n\n]\n\nimport
+          os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except
+          OSError:\n        pass\n    with open(output_file, ''w'') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"],
+          "image": "python:3.7"}}, "inputs": [{"name": "minimum", "type": "Integer"},
+          {"name": "maximum", "type": "Integer"}], "name": "Get random int op", "outputs":
+          [{"name": "Output", "type": "Integer"}]}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"maximum": "19", "minimum":
+          "10"}'}
+  - name: print-op
+    container:
+      args: [--message, 'heads and {{inputs.parameters.get-random-int-op-Output}}
+          > 5!']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def print_op(message):
+            """Print a message."""
+            print(message)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Print op', description='Print a message.')
+        _parser.add_argument("--message", dest="message", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = print_op(**_parsed_args)
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: get-random-int-op-Output}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Print
+          a message.", "implementation": {"container": {"args": ["--message", {"inputValue":
+          "message"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          print_op(message):\n    \"\"\"Print a message.\"\"\"\n    print(message)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Print op'', description=''Print
+          a message.'')\n_parser.add_argument(\"--message\", dest=\"message\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = print_op(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "message", "type": "String"}], "name": "Print op"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"message": "heads and {{inputs.parameters.get-random-int-op-Output}}
+          > 5!"}'}
+  - name: print-op-2
+    container:
+      args: [--message, 'heads and {{inputs.parameters.get-random-int-op-Output}}
+          <= 5!']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def print_op(message):
+            """Print a message."""
+            print(message)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Print op', description='Print a message.')
+        _parser.add_argument("--message", dest="message", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = print_op(**_parsed_args)
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: get-random-int-op-Output}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Print
+          a message.", "implementation": {"container": {"args": ["--message", {"inputValue":
+          "message"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          print_op(message):\n    \"\"\"Print a message.\"\"\"\n    print(message)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Print op'', description=''Print
+          a message.'')\n_parser.add_argument(\"--message\", dest=\"message\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = print_op(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "message", "type": "String"}], "name": "Print op"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"message": "heads and {{inputs.parameters.get-random-int-op-Output}}
+          <= 5!"}'}
+  - name: print-op-3
+    container:
+      args: [--message, 'tails and {{inputs.parameters.get-random-int-op-2-Output}}
+          > 15!']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def print_op(message):
+            """Print a message."""
+            print(message)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Print op', description='Print a message.')
+        _parser.add_argument("--message", dest="message", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = print_op(**_parsed_args)
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: get-random-int-op-2-Output}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Print
+          a message.", "implementation": {"container": {"args": ["--message", {"inputValue":
+          "message"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          print_op(message):\n    \"\"\"Print a message.\"\"\"\n    print(message)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Print op'', description=''Print
+          a message.'')\n_parser.add_argument(\"--message\", dest=\"message\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = print_op(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "message", "type": "String"}], "name": "Print op"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"message": "tails and {{inputs.parameters.get-random-int-op-2-Output}}
+          > 15!"}'}
+  - name: print-op-4
+    container:
+      args: [--message, 'tails and {{inputs.parameters.get-random-int-op-2-Output}}
+          <= 15!']
+      command:
+      - sh
+      - -ec
+      - |
+        program_path=$(mktemp)
+        printf "%s" "$0" > "$program_path"
+        python3 -u "$program_path" "$@"
+      - |
+        def print_op(message):
+            """Print a message."""
+            print(message)
+
+        import argparse
+        _parser = argparse.ArgumentParser(prog='Print op', description='Print a message.')
+        _parser.add_argument("--message", dest="message", type=str, required=True, default=argparse.SUPPRESS)
+        _parsed_args = vars(_parser.parse_args())
+
+        _outputs = print_op(**_parsed_args)
+      image: python:3.7
+    inputs:
+      parameters:
+      - {name: get-random-int-op-2-Output}
+    metadata:
+      annotations: {pipelines.kubeflow.org/component_spec: '{"description": "Print
+          a message.", "implementation": {"container": {"args": ["--message", {"inputValue":
+          "message"}], "command": ["sh", "-ec", "program_path=$(mktemp)\nprintf \"%s\"
+          \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n", "def
+          print_op(message):\n    \"\"\"Print a message.\"\"\"\n    print(message)\n\nimport
+          argparse\n_parser = argparse.ArgumentParser(prog=''Print op'', description=''Print
+          a message.'')\n_parser.add_argument(\"--message\", dest=\"message\", type=str,
+          required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs
+          = print_op(**_parsed_args)\n"], "image": "python:3.7"}}, "inputs": [{"name":
+          "message", "type": "String"}], "name": "Print op"}', pipelines.kubeflow.org/component_ref: '{}',
+        pipelines.kubeflow.org/arguments.parameters: '{"message": "tails and {{inputs.parameters.get-random-int-op-2-Output}}
+          <= 15!"}'}
+  arguments:
+    parameters: []
+  serviceAccountName: pipeline-runner
