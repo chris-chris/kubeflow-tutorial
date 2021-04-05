@@ -1,34 +1,24 @@
-from typing import NamedTuple
-
-import numpy as np
 import kfp
-from kfp import dsl, components
+from kfp.components import func_to_container_op, OutputPath, InputPath
 
 EXPERIMENT_NAME = 'Train TF MNIST'        # Name of the experiment in the UI
 KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
 
 
-def download_mnist() -> NamedTuple(
-    'MNISTData',
-    [
-        ('x_train', np.ndarray),
-        ('y_train', np.ndarray),
-        ('x_test', np.ndarray),
-        ('y_test', np.ndarray),
-    ]):
+def download_mnist(output_dir_path: OutputPath()):
     import tensorflow as tf
 
-    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
-
-    from collections import namedtuple
-    mnist_data = namedtuple('MNISTData', ['x_train', 'y_train', 'x_test', 'y_test'])
-    return mnist_data(x_train, y_train, x_test, y_test)
+    tf.keras.datasets.mnist.load_data(output_dir_path)
 
 
-def train_mnist(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_test: np.ndarray):
+def train_mnist(data_path: InputPath(), model_output: OutputPath()):
     import tensorflow as tf
-    print(x_train)
-    print(y_train)
+    import numpy as np
+    with np.load(data_path, allow_pickle=True) as f:
+        x_train, y_train = f['x_train'], f['y_train']
+        x_test, y_test = f['x_test'], f['y_test']
+    print(x_train.shape)
+    print(y_train.shape)
 
     model = tf.keras.models.Sequential([
         tf.keras.layers.Flatten(input_shape=(28, 28)),
@@ -46,28 +36,18 @@ def train_mnist(x_train: np.ndarray, y_train: np.ndarray, x_test: np.ndarray, y_
     )
     model.evaluate(x_test, y_test)
 
-    model.save("/tmp")
-
-    return "/tmp"
+    model.save(model_output)
 
 
 def tf_mnist_pipeline():
-    # Convert the function to a pipeline operation.
-    download_mnist_op = components.func_to_container_op(
-        download_mnist,
-        base_image="tensorflow/tensorflow",
-    )
-    train_mnist_op = components.func_to_container_op(
-        train_mnist,
-        base_image="tensorflow/tensorflow"
-    )
-
-    download_mnist_op = download_mnist_op()
-    _ = train_mnist_op(download_mnist_op.outputs["x_train"], download_mnist_op.outputs["y_train"],
-                       download_mnist_op.outputs["x_test"], download_mnist_op.outputs["y_test"])
+    download_op = func_to_container_op(download_mnist, base_image="tensorflow/tensorflow")
+    train_mnist_op = func_to_container_op(train_mnist, base_image="tensorflow/tensorflow")
+    train_mnist_op(download_op().output)
 
 
 if __name__ == '__main__':
+    import kfp.compiler as compiler
+    compiler.Compiler().compile(tf_mnist_pipeline, __file__ + '.zip')
     kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
         tf_mnist_pipeline,
         arguments={},

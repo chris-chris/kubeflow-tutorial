@@ -1,6 +1,8 @@
 import kfp
 from kfp import components
 
+EXPERIMENT_NAME = 'CatBoost pipeline'        # Name of the experiment in the UI
+KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
 
 chicago_taxi_dataset_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/e3337b8bdcd63636934954e592d4b32c95b49129/components/datasets/Chicago%20Taxi/component.yaml')
 pandas_transform_csv_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/e69a6694/components/pandas/Transform_DataFrame/in_CSV_format/component.yaml')
@@ -72,4 +74,8 @@ def catboost_pipeline():
 
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(catboost_pipeline, __file__ + '.yaml')
+    kfp.compiler.Compiler().compile(catboost_pipeline, __file__ + '.zip')
+    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+        catboost_pipeline,
+        arguments={},
+        experiment_name=EXPERIMENT_NAME)
