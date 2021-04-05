@@ -43,9 +43,7 @@ def hello_world_pipeline():
 
 
 if __name__ == "__main__":
-    kfp.compiler.Compiler().compile(
-        hello_world_pipeline,
-        'hello-world-pipeline.zip')
+    kfp.compiler.Compiler().compile(hello_world_pipeline, 'hello-world-pipeline.zip')
     kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
         hello_world_pipeline,
         arguments={},

@@ -2,3 +2,5 @@
 .DS_Store
 __pycache__
 hello-kf
+*.zip
+*.tar.gz

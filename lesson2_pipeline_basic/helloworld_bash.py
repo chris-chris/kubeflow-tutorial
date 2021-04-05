@@ -37,7 +37,7 @@ def hello_world_bash_pipeline():
 
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(hello_world_bash_pipeline, __file__ + '.yaml')
+    kfp.compiler.Compiler().compile(hello_world_bash_pipeline, __file__ + '.zip')
     kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
         hello_world_bash_pipeline,
         arguments={},
