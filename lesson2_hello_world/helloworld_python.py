@@ -14,37 +14,24 @@
 # limitations under the License.
 
 import kfp
-from kfp import components
 
-BASE_IMAGE = "python:3.7"
 KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
 
 
-@kfp.dsl.python_component(
-    name="hello_world_component",
-    description="Print Hello World",
-    base_image=BASE_IMAGE
-)
 def hello_world_component():
     ret = "Hello World!"
     print(ret)
     return ret
 
 
-hello_world_op = components.func_to_container_op(
-    hello_world_component,
-    base_image=BASE_IMAGE,
-)
-
-
 @kfp.dsl.pipeline(name="hello_pipeline", description="Hello World Pipeline!")
 def hello_world_pipeline():
+    hello_world_op = kfp.components.func_to_container_op(hello_world_component)
     _ = hello_world_op()
 
 
 if __name__ == "__main__":
-    kfp.compiler.Compiler().compile(hello_world_pipeline, 'hello-world-pipeline.zip')
+    kfp.compiler.Compiler().compile(hello_world_pipeline, "hello-world-pipeline.zip")
     kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        hello_world_pipeline,
-        arguments={},
-        experiment_name="hello-world-experiment")
+        hello_world_pipeline, arguments={}, experiment_name="hello-world-experiment"
+    )
