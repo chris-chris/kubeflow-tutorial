@@ -1,21 +1,32 @@
 import kfp
 from kfp import components
+from kfp import dsl
 
 EXPERIMENT_NAME = 'CatBoost pipeline'        # Name of the experiment in the UI
 KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
 
-chicago_taxi_dataset_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/e3337b8bdcd63636934954e592d4b32c95b49129/components/datasets/Chicago%20Taxi/component.yaml')
-pandas_transform_csv_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/e69a6694/components/pandas/Transform_DataFrame/in_CSV_format/component.yaml')
+chicago_taxi_dataset_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/e3337b8bdcd63636934954e592d4b32c95b49129/components/datasets/Chicago%20Taxi/component.yaml')
+pandas_transform_csv_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/e69a6694/components/pandas/Transform_DataFrame/in_CSV_format/component.yaml')
 
-catboost_train_classifier_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Train_classifier/from_CSV/component.yaml')
-catboost_train_regression_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Train_regression/from_CSV/component.yaml')
-catboost_predict_classes_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_classes/from_CSV/component.yaml')
-catboost_predict_values_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_values/from_CSV/component.yaml')
-catboost_predict_class_probabilities_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_class_probabilities/from_CSV/component.yaml')
-catboost_to_apple_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/convert_CatBoostModel_to_AppleCoreMLModel/component.yaml')
-catboost_to_onnx_op = components.load_component_from_url('https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/convert_CatBoostModel_to_ONNX/component.yaml')
+catboost_train_classifier_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Train_classifier/from_CSV/component.yaml')
+catboost_train_regression_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Train_regression/from_CSV/component.yaml')
+catboost_predict_classes_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_classes/from_CSV/component.yaml')
+catboost_predict_values_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_values/from_CSV/component.yaml')
+catboost_predict_class_probabilities_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/Predict_class_probabilities/from_CSV/component.yaml')
+catboost_to_apple_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/convert_CatBoostModel_to_AppleCoreMLModel/component.yaml')
+catboost_to_onnx_op = components.load_component_from_url(
+    'https://raw.githubusercontent.com/kubeflow/pipelines/f97ad2/components/CatBoost/convert_CatBoostModel_to_ONNX/component.yaml')
 
 
+@dsl.pipeline(name="catboost-pipeline")
 def catboost_pipeline():
     training_data_in_csv = chicago_taxi_dataset_op(
         where='trip_start_timestamp >= "2019-01-01" AND trip_start_timestamp < "2019-02-01"',
@@ -74,8 +85,11 @@ def catboost_pipeline():
 
 
 if __name__ == '__main__':
-    kfp.compiler.Compiler().compile(catboost_pipeline, __file__ + '.zip')
-    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        catboost_pipeline,
-        arguments={},
-        experiment_name=EXPERIMENT_NAME)
+    # kfp.compiler.Compiler().compile(catboost_pipeline, __file__ + '.zip')
+    # kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+    #     catboost_pipeline,
+    #     arguments={},
+    #     experiment_name=EXPERIMENT_NAME)
+
+    from kfp.v2 import compiler
+    compiler.Compiler().compile(catboost_pipeline, "tf-mnist-pipeline.json")

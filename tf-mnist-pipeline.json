@@ -1,0 +1,125 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-download-mnist": {
+        "executorLabel": "exec-download-mnist",
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-train-mnist": {
+        "executorLabel": "exec-train-mnist",
+        "inputDefinitions": {
+          "artifacts": {
+            "data": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "model_output": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-download-mnist": {
+          "container": {
+            "args": [
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef download_mnist(output_dir_path):\n    import tensorflow as tf\n\n    tf.keras.datasets.mnist.load_data(output_dir_path)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Download mnist', description='')\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = download_mnist(**_parsed_args)\n"
+            ],
+            "image": "tensorflow/tensorflow"
+          }
+        },
+        "exec-train-mnist": {
+          "container": {
+            "args": [
+              "--data",
+              "{{$.inputs.artifacts['data'].path}}",
+              "--model-output",
+              "{{$.outputs.artifacts['model_output'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef train_mnist(data_path, model_output):\n    import tensorflow as tf\n    import numpy as np\n    with np.load(data_path, allow_pickle=True) as f:\n        x_train, y_train = f['x_train'], f['y_train']\n        x_test, y_test = f['x_test'], f['y_test']\n    print(x_train.shape)\n    print(y_train.shape)\n\n    model = tf.keras.models.Sequential([\n        tf.keras.layers.Flatten(input_shape=(28, 28)),\n        tf.keras.layers.Dense(128, activation='relu'),\n        tf.keras.layers.Dense(10)\n    ])\n    model.compile(\n        optimizer=tf.keras.optimizers.Adam(0.001),\n        loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),\n        metrics=[tf.keras.metrics.SparseCategoricalAccuracy()],\n    )\n\n    model.fit(\n        x_train, y_train,\n    )\n    model.evaluate(x_test, y_test)\n\n    model.save(model_output)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Train mnist', description='')\n_parser.add_argument(\"--data\", dest=\"data_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--model-output\", dest=\"model_output\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = train_mnist(**_parsed_args)\n"
+            ],
+            "image": "tensorflow/tensorflow"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "tf-mnist-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "download-mnist": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-download-mnist"
+            },
+            "taskInfo": {
+              "name": "download-mnist"
+            }
+          },
+          "train-mnist": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-train-mnist"
+            },
+            "dependentTasks": [
+              "download-mnist"
+            ],
+            "inputs": {
+              "artifacts": {
+                "data": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "download-mnist"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "train-mnist"
+            }
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {}
+}

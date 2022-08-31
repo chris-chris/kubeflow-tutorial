@@ -1,4 +1,5 @@
 import kfp
+from kfp import dsl
 from kfp.components import func_to_container_op, OutputPath, InputPath
 
 EXPERIMENT_NAME = 'Train TF MNIST'        # Name of the experiment in the UI
@@ -39,16 +40,22 @@ def train_mnist(data_path: InputPath(), model_output: OutputPath()):
     model.save(model_output)
 
 
+@dsl.pipeline(name="tf-mnist-pipeline")
 def tf_mnist_pipeline():
-    download_op = func_to_container_op(download_mnist, base_image="tensorflow/tensorflow")
-    train_mnist_op = func_to_container_op(train_mnist, base_image="tensorflow/tensorflow")
+    download_op = func_to_container_op(
+        download_mnist, base_image="tensorflow/tensorflow")
+    train_mnist_op = func_to_container_op(
+        train_mnist, base_image="tensorflow/tensorflow")
     train_mnist_op(download_op().output)
 
 
 if __name__ == '__main__':
     import kfp.compiler as compiler
-    compiler.Compiler().compile(tf_mnist_pipeline, __file__ + '.zip')
-    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        tf_mnist_pipeline,
-        arguments={},
-        experiment_name=EXPERIMENT_NAME)
+    # compiler.Compiler().compile(tf_mnist_pipeline, __file__ + '.zip')
+    # kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+    #     tf_mnist_pipeline,
+    #     arguments={},
+    #     experiment_name=EXPERIMENT_NAME)
+
+    from kfp.v2 import compiler
+    compiler.Compiler().compile(tf_mnist_pipeline, "tf-mnist-pipeline.json")

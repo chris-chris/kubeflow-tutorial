@@ -1,0 +1,305 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-mulitply-op": {
+        "executorLabel": "exec-mulitply-op",
+        "inputDefinitions": {
+          "parameters": {
+            "x": {
+              "type": "DOUBLE"
+            },
+            "y": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      },
+      "comp-mulitply-op-2": {
+        "executorLabel": "exec-mulitply-op-2",
+        "inputDefinitions": {
+          "parameters": {
+            "x": {
+              "type": "DOUBLE"
+            },
+            "y": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      },
+      "comp-mulitply-op-3": {
+        "executorLabel": "exec-mulitply-op-3",
+        "inputDefinitions": {
+          "parameters": {
+            "x": {
+              "type": "DOUBLE"
+            },
+            "y": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      },
+      "comp-mulitply-op-4": {
+        "executorLabel": "exec-mulitply-op-4",
+        "inputDefinitions": {
+          "parameters": {
+            "x": {
+              "type": "DOUBLE"
+            },
+            "y": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-mulitply-op": {
+          "container": {
+            "args": [
+              "--x",
+              "{{$.inputs.parameters['x']}}",
+              "--y",
+              "{{$.inputs.parameters['y']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def multiply(x, y):\n    \"\"\"Multiplies two numbers\"\"\"\n    print(x, \"*\", y, \"=\", x * y)\n    return x * y\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='mulitply-op', description='Multiplies two numbers')\n_parser.add_argument(\"--x\", dest=\"x\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--y\", dest=\"y\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = multiply(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.9"
+          }
+        },
+        "exec-mulitply-op-2": {
+          "container": {
+            "args": [
+              "--x",
+              "{{$.inputs.parameters['x']}}",
+              "--y",
+              "{{$.inputs.parameters['y']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def multiply(x, y):\n    \"\"\"Multiplies two numbers\"\"\"\n    print(x, \"*\", y, \"=\", x * y)\n    return x * y\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='mulitply-op', description='Multiplies two numbers')\n_parser.add_argument(\"--x\", dest=\"x\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--y\", dest=\"y\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = multiply(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.9"
+          }
+        },
+        "exec-mulitply-op-3": {
+          "container": {
+            "args": [
+              "--x",
+              "{{$.inputs.parameters['x']}}",
+              "--y",
+              "{{$.inputs.parameters['y']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def multiply(x, y):\n    \"\"\"Multiplies two numbers\"\"\"\n    print(x, \"*\", y, \"=\", x * y)\n    return x * y\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='mulitply-op', description='Multiplies two numbers')\n_parser.add_argument(\"--x\", dest=\"x\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--y\", dest=\"y\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = multiply(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.9"
+          }
+        },
+        "exec-mulitply-op-4": {
+          "container": {
+            "args": [
+              "--x",
+              "{{$.inputs.parameters['x']}}",
+              "--y",
+              "{{$.inputs.parameters['y']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def multiply(x, y):\n    \"\"\"Multiplies two numbers\"\"\"\n    print(x, \"*\", y, \"=\", x * y)\n    return x * y\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='mulitply-op', description='Multiplies two numbers')\n_parser.add_argument(\"--x\", dest=\"x\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--y\", dest=\"y\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = multiply(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.9"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "multiplication-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "mulitply-op": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-mulitply-op"
+            },
+            "inputs": {
+              "parameters": {
+                "x": {
+                  "componentInputParameter": "x"
+                },
+                "y": {
+                  "componentInputParameter": "y"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "mulitply-op"
+            }
+          },
+          "mulitply-op-2": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-mulitply-op-2"
+            },
+            "inputs": {
+              "parameters": {
+                "x": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "3"
+                    }
+                  }
+                },
+                "y": {
+                  "componentInputParameter": "y"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "mulitply-op-2"
+            }
+          },
+          "mulitply-op-3": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-mulitply-op-3"
+            },
+            "dependentTasks": [
+              "mulitply-op",
+              "mulitply-op-2"
+            ],
+            "inputs": {
+              "parameters": {
+                "x": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "Output",
+                    "producerTask": "mulitply-op"
+                  }
+                },
+                "y": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "Output",
+                    "producerTask": "mulitply-op-2"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "mulitply-op-3"
+            }
+          },
+          "mulitply-op-4": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-mulitply-op-4"
+            },
+            "dependentTasks": [
+              "mulitply-op-3"
+            ],
+            "inputs": {
+              "parameters": {
+                "x": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "Output",
+                    "producerTask": "mulitply-op-3"
+                  }
+                },
+                "y": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "10"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "mulitply-op-4"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "parameters": {
+          "x": {
+            "type": "DOUBLE"
+          },
+          "y": {
+            "type": "DOUBLE"
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {
+    "parameters": {
+      "x": {
+        "doubleValue": 2.0
+      },
+      "y": {
+        "doubleValue": 3.0
+      }
+    }
+  }
+}

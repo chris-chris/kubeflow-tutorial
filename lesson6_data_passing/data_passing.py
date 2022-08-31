@@ -162,7 +162,7 @@ def sum_pipeline(count: int = 100000):
 # Combining all pipelines together in a single pipeline
 def file_passing_pipelines():
     print_repeating_lines_pipeline()
-    text_splitting_pipeline()
+    # text_splitting_pipeline()
     sum_pipeline()
 
 

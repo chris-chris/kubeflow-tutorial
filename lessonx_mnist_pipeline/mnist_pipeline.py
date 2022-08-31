@@ -17,6 +17,7 @@ Run this script to compile pipeline
 """
 
 
+from ast import arguments
 import kfp
 import kfp.dsl as dsl
 import kfp.gcp as gcp
@@ -28,7 +29,7 @@ KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
 
 
 @dsl.pipeline(
-    name='MNIST',
+    name='mnist',
     description='A pipeline to train and serve the MNIST example.'
 )
 def mnist_pipeline(model_export_dir='gs://your-bucket/export',
@@ -101,14 +102,17 @@ def mnist_pipeline(model_export_dir='gs://your-bucket/export',
 
 
 if __name__ == '__main__':
-    import kfp.compiler as compiler
-    compiler.Compiler().compile(mnist_pipeline, __file__ + '.tar.gz')
+    # import kfp.compiler as compiler
+    # compiler.Compiler().compile(mnist_pipeline, __file__ + '.tar.gz')
 
-    # Launch a pipeline run given the pipeline function definition
-    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        mnist_pipeline,
-        arguments={
-            "model_export_dir": "/mnt/export",
-            "pvc_name": "task-pv-claim"},
-        experiment_name=EXPERIMENT_NAME)
+    # # Launch a pipeline run given the pipeline function definition
+    # kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+    #     mnist_pipeline,
+    #     arguments={
+    #         "model_export_dir": "/mnt/export",
+    #         "pvc_name": "task-pv-claim"},
+    #     experiment_name=EXPERIMENT_NAME)
     # The generated links below lead to the Experiment page and the pipeline run details page, respectively
+
+    from kfp.v2 import compiler
+    compiler.Compiler().compile(mnist_pipeline, "tf-mnist2-pipeline.json")
