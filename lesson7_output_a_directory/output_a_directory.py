@@ -21,7 +21,7 @@
 
 import kfp
 from kfp.components import create_component_from_func, load_component_from_text, InputPath, OutputPath
-
+from kfp import dsl
 
 EXPERIMENT_NAME = 'Output a directory'        # Name of the experiment in the UI
 KUBEFLOW_HOST = "http://127.0.0.1:8080/pipeline"
@@ -87,7 +87,10 @@ implementation:
 
 
 # Test pipeline
-
+@dsl.pipeline(
+    name='dir-pipeline',
+    description=''
+)
 def dir_pipeline():
     produce_dir_python_task = produce_dir_with_files_python_op(num_files=15)
     list_dir_files_python_op(input_dir=produce_dir_python_task.output)
@@ -97,7 +100,12 @@ def dir_pipeline():
 
 
 if __name__ == '__main__':
-    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        dir_pipeline,
-        arguments={},
-        experiment_name=EXPERIMENT_NAME)
+    from kfp.v2 import compiler
+    # Launch a pipeline run given the pipeline function definition
+    compiler.Compiler().compile(dir_pipeline,
+                                'dir-pipeline.json')
+
+    # kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+    #     dir_pipeline,
+    #     arguments={},
+    #     experiment_name=EXPERIMENT_NAME)

@@ -1,0 +1,47 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-hello-chris-component": {
+        "executorLabel": "exec-hello-chris-component"
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-hello-chris-component": {
+          "container": {
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def hello_chris_component():\n    ret = \"Hello Chris!\"\n    print(ret)\n    return ret\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Hello chris component', description='')\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = hello_chris_component(**_parsed_args)\n"
+            ],
+            "image": "python:3.7"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "hello-chris-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "hello-chris-component": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-hello-chris-component"
+            },
+            "taskInfo": {
+              "name": "hello-chris-component"
+            }
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {}
+}

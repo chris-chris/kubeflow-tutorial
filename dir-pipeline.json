@@ -1,0 +1,233 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-list-dir-files": {
+        "executorLabel": "exec-list-dir-files",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-list-dir-files-python-op": {
+        "executorLabel": "exec-list-dir-files-python-op",
+        "inputDefinitions": {
+          "artifacts": {
+            "input_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-produce-dir-with-files-python-op": {
+        "executorLabel": "exec-produce-dir-with-files-python-op",
+        "inputDefinitions": {
+          "parameters": {
+            "num_files": {
+              "type": "INT"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      },
+      "comp-produce-directory": {
+        "executorLabel": "exec-produce-directory",
+        "inputDefinitions": {
+          "parameters": {
+            "num_files": {
+              "type": "INT"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "artifacts": {
+            "output_dir": {
+              "artifactType": {
+                "schemaTitle": "system.Artifact",
+                "schemaVersion": "0.0.1"
+              }
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-list-dir-files": {
+          "container": {
+            "command": [
+              "ls",
+              "{{$.inputs.artifacts['input_dir'].path}}"
+            ],
+            "image": "alpine"
+          }
+        },
+        "exec-list-dir-files-python-op": {
+          "container": {
+            "args": [
+              "--input-dir",
+              "{{$.inputs.artifacts['input_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def list_dir_files_python_op(input_dir_path):\n    import os\n    dir_items = os.listdir(input_dir_path)\n    for dir_item in dir_items:\n        print(dir_item)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='List dir files python op', description='')\n_parser.add_argument(\"--input-dir\", dest=\"input_dir_path\", type=str, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = list_dir_files_python_op(**_parsed_args)\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-produce-dir-with-files-python-op": {
+          "container": {
+            "args": [
+              "--num-files",
+              "{{$.inputs.parameters['num_files']}}",
+              "--output-dir",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def _make_parent_dirs_and_return_path(file_path: str):\n    import os\n    os.makedirs(os.path.dirname(file_path), exist_ok=True)\n    return file_path\n\ndef produce_dir_with_files_python_op(output_dir_path, num_files = 10):\n    import os\n    os.makedirs(output_dir_path, exist_ok=True)\n    for i in range(num_files):\n        file_path = os.path.join(output_dir_path, str(i) + '.txt')\n        with open(file_path, 'w') as f:\n            f.write(str(i))\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Produce dir with files python op', description='')\n_parser.add_argument(\"--num-files\", dest=\"num_files\", type=int, required=False, default=argparse.SUPPRESS)\n_parser.add_argument(\"--output-dir\", dest=\"output_dir_path\", type=_make_parent_dirs_and_return_path, required=True, default=argparse.SUPPRESS)\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = produce_dir_with_files_python_op(**_parsed_args)\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-produce-directory": {
+          "container": {
+            "command": [
+              "sh",
+              "-ecx",
+              "num_files=\"$0\"\noutput_path=\"$1\"\nmkdir -p \"$output_path\"\nfor i in $(seq \"$num_files\"); do\n  echo \"$i\" > \"$output_path/${i}.txt\"\ndone\n",
+              "{{$.inputs.parameters['num_files']}}",
+              "{{$.outputs.artifacts['output_dir'].path}}"
+            ],
+            "image": "alpine"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "dir-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "list-dir-files": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-list-dir-files"
+            },
+            "dependentTasks": [
+              "produce-directory"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "produce-directory"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "list-dir-files"
+            }
+          },
+          "list-dir-files-python-op": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-list-dir-files-python-op"
+            },
+            "dependentTasks": [
+              "produce-dir-with-files-python-op"
+            ],
+            "inputs": {
+              "artifacts": {
+                "input_dir": {
+                  "taskOutputArtifact": {
+                    "outputArtifactKey": "output_dir",
+                    "producerTask": "produce-dir-with-files-python-op"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "list-dir-files-python-op"
+            }
+          },
+          "produce-dir-with-files-python-op": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-produce-dir-with-files-python-op"
+            },
+            "inputs": {
+              "parameters": {
+                "num_files": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "15"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "produce-dir-with-files-python-op"
+            }
+          },
+          "produce-directory": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-produce-directory"
+            },
+            "inputs": {
+              "parameters": {
+                "num_files": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "15"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "produce-directory"
+            }
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {}
+}
