@@ -1,0 +1,47 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-hello-world-component": {
+        "executorLabel": "exec-hello-world-component"
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-hello-world-component": {
+          "container": {
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def hello_world_component():\n    ret = \"Hello World!\"\n    print(ret)\n    return ret\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='Hello world component', description='')\n_parsed_args = vars(_parser.parse_args())\n\n_outputs = hello_world_component(**_parsed_args)\n"
+            ],
+            "image": "python:3.7"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "hello-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "hello-world-component": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-hello-world-component"
+            },
+            "taskInfo": {
+              "name": "hello-world-component"
+            }
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {}
+}

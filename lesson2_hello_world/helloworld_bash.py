@@ -28,15 +28,16 @@ def echo_op():
     )
 
 
-@dsl.pipeline(name="hello_world_bash_pipeline", description="A hello world pipeline.")
+@dsl.pipeline(name="hello-world-bash-pipeline", description="A hello world pipeline.")
 def hello_world_bash_pipeline():
     echo_task = echo_op()
 
 
 if __name__ == "__main__":
-    kfp.compiler.Compiler().compile(hello_world_bash_pipeline, __file__ + ".zip")
-    kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
-        hello_world_bash_pipeline,
-        arguments={},
-        experiment_name="hello-world-bash-experiment",
-    )
+    from kfp.v2 import compiler
+    compiler.Compiler().compile(hello_world_bash_pipeline,'hello-world-bash-pipeline.json')
+    # kfp.Client(host=KUBEFLOW_HOST).create_run_from_pipeline_func(
+    #     hello_world_bash_pipeline,
+    #     arguments={},
+    #     experiment_name="hello-world-bash-experiment",
+    # )

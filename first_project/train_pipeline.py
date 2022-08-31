@@ -19,8 +19,7 @@ def mnist_train_pipeline(docker_org="index.docker.io/seldonio",
     volume = vop.volume
     train = dsl.ContainerOp(
         name='sk-train',
-        image=
-        f"{docker_org}/skmnistclassifier_trainer:{train_container_version}",
+        image=f"{docker_org}/skmnistclassifier_trainer:{train_container_version}",
         pvolumes={"/data": volume})
 
     seldon_serving_json_template = Template("""
@@ -111,6 +110,7 @@ if __name__ == '__main__':
     import kfp.compiler as compiler
     compiler.Compiler().compile(pipeline_func, pipeline_filename)
     expirement_name = "cheese"
+
     # experiment = client.create_experiment(expirement_name)
     # run_name = pipeline_func.__name__ + ' run'
     # run_result = client.run_pipeline(experiment.id, run_name,

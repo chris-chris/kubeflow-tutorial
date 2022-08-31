@@ -31,6 +31,7 @@ from kfp.components import func_to_container_op, InputPath, OutputPath
 
 # %%
 
+
 @func_to_container_op
 def get_random_int_op(minimum: int, maximum: int) -> int:
     """Generate a random number between minimum and maximum (inclusive)."""
@@ -56,7 +57,7 @@ def print_op(message: str):
 
 
 @dsl.pipeline(
-    name='Conditional execution pipeline',
+    name='conditional-execution-pipeline',
     description='Shows how to use dsl.Condition().'
 )
 def flipcoin_pipeline():
@@ -93,7 +94,7 @@ def fail_op(message):
 
 
 @dsl.pipeline(
-    name='Conditional execution pipeline with exit handler',
+    name='conditional-execution-pipeline-exit-handler',
     description='Shows how to use dsl.Condition() and dsl.ExitHandler().'
 )
 def flipcoin_exit_pipeline():
@@ -115,9 +116,13 @@ def flipcoin_exit_pipeline():
                 print_op('tails and %s <= 15!' % random_num_tail.output)
 
         with dsl.Condition(flip.output == 'tails'):
-            fail_op(message="Failing the run to demonstrate that exit handler still gets executed.")
+            fail_op(
+                message="Failing the run to demonstrate that exit handler still gets executed.")
 
 
 if __name__ == '__main__':
     # Compiling the pipeline
-    kfp.compiler.Compiler().compile(flipcoin_exit_pipeline, __file__ + '.yaml')
+    # kfp.compiler.Compiler().compile(flipcoin_exit_pipeline, __file__ + '.yaml')
+    from kfp.v2 import compiler
+    compiler.Compiler().compile(flipcoin_pipeline,
+                                'flipcoin_exit_pipeline-pipeline.json')

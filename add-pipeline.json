@@ -1,0 +1,235 @@
+{
+  "pipelineSpec": {
+    "components": {
+      "comp-add-op": {
+        "executorLabel": "exec-add-op",
+        "inputDefinitions": {
+          "parameters": {
+            "a": {
+              "type": "DOUBLE"
+            },
+            "b": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      },
+      "comp-add-op-2": {
+        "executorLabel": "exec-add-op-2",
+        "inputDefinitions": {
+          "parameters": {
+            "a": {
+              "type": "DOUBLE"
+            },
+            "b": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      },
+      "comp-add-op-3": {
+        "executorLabel": "exec-add-op-3",
+        "inputDefinitions": {
+          "parameters": {
+            "a": {
+              "type": "DOUBLE"
+            },
+            "b": {
+              "type": "DOUBLE"
+            }
+          }
+        },
+        "outputDefinitions": {
+          "parameters": {
+            "Output": {
+              "type": "DOUBLE"
+            }
+          }
+        }
+      }
+    },
+    "deploymentSpec": {
+      "executors": {
+        "exec-add-op": {
+          "container": {
+            "args": [
+              "--a",
+              "{{$.inputs.parameters['a']}}",
+              "--b",
+              "{{$.inputs.parameters['b']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def add(a, b):\n    '''Calculates sum of two arguments'''\n    print(a, '+', b, '=', a + b)\n    return a + b\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='add-op', description='adds two numbers')\n_parser.add_argument(\"--a\", dest=\"a\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--b\", dest=\"b\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = add(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-add-op-2": {
+          "container": {
+            "args": [
+              "--a",
+              "{{$.inputs.parameters['a']}}",
+              "--b",
+              "{{$.inputs.parameters['b']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def add(a, b):\n    '''Calculates sum of two arguments'''\n    print(a, '+', b, '=', a + b)\n    return a + b\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='add-op', description='adds two numbers')\n_parser.add_argument(\"--a\", dest=\"a\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--b\", dest=\"b\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = add(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.7"
+          }
+        },
+        "exec-add-op-3": {
+          "container": {
+            "args": [
+              "--a",
+              "{{$.inputs.parameters['a']}}",
+              "--b",
+              "{{$.inputs.parameters['b']}}",
+              "----output-paths",
+              "{{$.outputs.parameters['Output'].output_file}}"
+            ],
+            "command": [
+              "sh",
+              "-ec",
+              "program_path=$(mktemp)\nprintf \"%s\" \"$0\" > \"$program_path\"\npython3 -u \"$program_path\" \"$@\"\n",
+              "def add(a, b):\n    '''Calculates sum of two arguments'''\n    print(a, '+', b, '=', a + b)\n    return a + b\n\ndef _serialize_float(float_value: float) -> str:\n    if isinstance(float_value, str):\n        return float_value\n    if not isinstance(float_value, (float, int)):\n        raise TypeError('Value \"{}\" has type \"{}\" instead of float.'.format(\n            str(float_value), str(type(float_value))))\n    return str(float_value)\n\nimport argparse\n_parser = argparse.ArgumentParser(prog='add-op', description='adds two numbers')\n_parser.add_argument(\"--a\", dest=\"a\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"--b\", dest=\"b\", type=float, required=True, default=argparse.SUPPRESS)\n_parser.add_argument(\"----output-paths\", dest=\"_output_paths\", type=str, nargs=1)\n_parsed_args = vars(_parser.parse_args())\n_output_files = _parsed_args.pop(\"_output_paths\", [])\n\n_outputs = add(**_parsed_args)\n\n_outputs = [_outputs]\n\n_output_serializers = [\n    _serialize_float,\n\n]\n\nimport os\nfor idx, output_file in enumerate(_output_files):\n    try:\n        os.makedirs(os.path.dirname(output_file))\n    except OSError:\n        pass\n    with open(output_file, 'w') as f:\n        f.write(_output_serializers[idx](_outputs[idx]))\n"
+            ],
+            "image": "python:3.7"
+          }
+        }
+      }
+    },
+    "pipelineInfo": {
+      "name": "calculation-pipeline"
+    },
+    "root": {
+      "dag": {
+        "tasks": {
+          "add-op": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-add-op"
+            },
+            "inputs": {
+              "parameters": {
+                "a": {
+                  "componentInputParameter": "a"
+                },
+                "b": {
+                  "runtimeValue": {
+                    "constantValue": {
+                      "intValue": "4"
+                    }
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "add-op"
+            }
+          },
+          "add-op-2": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-add-op-2"
+            },
+            "inputs": {
+              "parameters": {
+                "a": {
+                  "componentInputParameter": "a"
+                },
+                "b": {
+                  "componentInputParameter": "b"
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "add-op-2"
+            }
+          },
+          "add-op-3": {
+            "cachingOptions": {
+              "enableCache": true
+            },
+            "componentRef": {
+              "name": "comp-add-op-3"
+            },
+            "dependentTasks": [
+              "add-op",
+              "add-op-2"
+            ],
+            "inputs": {
+              "parameters": {
+                "a": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "Output",
+                    "producerTask": "add-op"
+                  }
+                },
+                "b": {
+                  "taskOutputParameter": {
+                    "outputParameterKey": "Output",
+                    "producerTask": "add-op-2"
+                  }
+                }
+              }
+            },
+            "taskInfo": {
+              "name": "add-op-3"
+            }
+          }
+        }
+      },
+      "inputDefinitions": {
+        "parameters": {
+          "a": {
+            "type": "DOUBLE"
+          },
+          "b": {
+            "type": "DOUBLE"
+          }
+        }
+      }
+    },
+    "schemaVersion": "2.0.0",
+    "sdkVersion": "kfp-1.8.12"
+  },
+  "runtimeConfig": {
+    "parameters": {
+      "a": {
+        "doubleValue": 0.0
+      },
+      "b": {
+        "doubleValue": 7.0
+      }
+    }
+  }
+}
